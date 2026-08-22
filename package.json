@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "biome check",
+    "lint": "biome check && pnpm typecheck",
+    "lint:ci": "biome ci && pnpm typecheck",
+    "typecheck": "tsgo --noEmit",
     "format": "biome format --write"
   },
   "dependencies": {
@@ -30,6 +32,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "babel-plugin-react-compiler": "1.0.0",
     "supabase": "^2.115.0",
     "tailwindcss": "^4",
