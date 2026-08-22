@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "biome check && pnpm typecheck",
     "lint:ci": "biome ci && pnpm typecheck",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "next typegen && tsgo --noEmit",
     "format": "biome format --write"
   },
   "dependencies": {
