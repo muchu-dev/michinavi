@@ -1,0 +1,26 @@
+name: Setup Node.js and pnpm
+description: mise.toml のバージョンで Node.js と pnpm を用意し、依存関係をインストールする
+
+runs:
+  using: composite
+  steps:
+    # mise.toml を読むのでローカルとバージョンが必ず一致する
+    - name: Install Node.js and pnpm
+      uses: jdx/mise-action@v2
+
+    - name: Resolve pnpm store directory
+      id: pnpm-store
+      shell: bash
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore pnpm store
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
