@@ -24,3 +24,15 @@ cp .env.example .env.local
 pnpm install   # 依存パッケージを導入
 pnpm dev       # http://localhost:3000
 ```
+
+## 開発タスク
+
+Google Sheets のタスク正本をローカルで確認・差分検出できます。
+
+```bash
+pnpm tasks:status # 保存済みの進捗を表示
+pnpm tasks:check  # Google Sheetsの更新を確認
+pnpm tasks:sync   # 最新の全タスクを同期
+```
+
+詳細は [docs/tasks/README.md](./docs/tasks/README.md) を参照してください。
