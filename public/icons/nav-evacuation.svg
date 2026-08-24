@@ -1,0 +1,13 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="48" height="52" viewBox="0 0 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group">
+<path id="Vector" d="M28 26C34.7681 26 37.9983 29.438 37.9983 34.9389C38.0914 40.9893 34.2907 43.9243 28.1385 44" stroke="#597EBF" stroke-width="4"/>
+<path id="Vector_2" d="M20 26C13.2319 26 10.0017 22.562 10.0017 17.0611C9.90857 11.0107 13.7093 8.07568 19.8615 8.00001" stroke="#597EBF" stroke-width="4"/>
+<g id="Rectangle"><mask id="path-3-inside-1_0_14" fill="white"><path d="M15 42H29V45.15C29 45.6194 28.6194 46 28.15 46H15V42Z"/></mask><path d="M15 42H29V45.15C29 45.6194 28.6194 46 28.15 46H15V42Z" fill="#597EBF" stroke="#597EBF" stroke-width="2" mask="url(#path-3-inside-1_0_14)"/></g>
+<rect id="Rectangle_2" x="19.5" y="6.5" width="14" height="3" fill="#597EBF" stroke="#597EBF"/>
+<rect id="Rectangle_3" x="20.5" y="24.5" width="7" height="3" fill="#597EBF" stroke="#597EBF"/>
+<circle id="Ellipse" cx="40" cy="8" r="7.5" fill="#597EBF" stroke="#597EBF"/>
+<circle id="Ellipse_2" cx="8" cy="44" r="7.5" fill="#597EBF" stroke="#597EBF"/>
+<circle id="Ellipse_3" cx="8" cy="44" r="3.5" fill="white" stroke="#597EBF"/>
+<circle id="Ellipse_4" cx="40" cy="8" r="3.5" fill="white" stroke="#597EBF"/>
+</g>
+</svg>
