@@ -33,3 +33,26 @@ jobs:
 
       - name: Linting
         run: pnpm lint:ci
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/node-pnpm-setup
+
+      # DB とテストに要るコンテナだけ起動する
+      - name: Start Supabase
+        run: pnpm supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,realtime,storage-api,postgres-meta
+
+      - name: Test
+        run: pnpm test
+
+      - name: Stop Supabase
+        if: always()
+        run: pnpm supabase stop --no-backup
