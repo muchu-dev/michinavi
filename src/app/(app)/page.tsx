@@ -2,7 +2,10 @@ import { MapView } from "@/components/map/map-view";
 
 export default function MapPage() {
   return (
-    <section className="flex min-h-0 flex-1 flex-col" aria-labelledby="map-title">
+    <section
+      className="flex min-h-0 flex-1 flex-col"
+      aria-labelledby="map-title"
+    >
       <div className="relative z-[600] border-b border-outline bg-surface px-4 py-3 shadow-card">
         <div className="flex items-start justify-between gap-3">
           <div>

@@ -1,9 +1,11 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  plugins: [tsconfigPaths(), react()],
+  plugins: [react()],
+  resolve: {
+    tsconfigPaths: true,
+  },
   test: {
     environment: "jsdom",
     coverage: {
@@ -11,6 +13,7 @@ export default defineConfig({
       reporter: ["text", "json-summary"],
       include: [
         "src/components/app-shell/**/*.tsx",
+        "src/components/map/**/*.tsx",
         "src/config/navigation.ts",
       ],
       thresholds: {

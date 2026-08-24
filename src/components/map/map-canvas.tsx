@@ -34,7 +34,7 @@ export function MapCanvas() {
       center={center}
       zoom={15}
       scrollWheelZoom={false}
-      className="h-full min-h-[30rem] w-full"
+      className="absolute inset-0 h-full min-h-[30rem] w-full"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -46,7 +46,12 @@ export function MapCanvas() {
       />
       <Polyline
         positions={cautionRoute}
-        pathOptions={{ color: "#f0a92e", weight: 7, opacity: 0.9, dashArray: "8 10" }}
+        pathOptions={{
+          color: "#f0a92e",
+          weight: 7,
+          opacity: 0.9,
+          dashArray: "8 10",
+        }}
       />
       <Polyline
         positions={impassableRoute}
