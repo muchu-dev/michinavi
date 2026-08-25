@@ -9,7 +9,9 @@
     "lint": "biome check && pnpm typecheck",
     "lint:ci": "biome ci && pnpm typecheck",
     "typecheck": "next typegen && tsgo --noEmit",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -36,7 +38,8 @@
     "babel-plugin-react-compiler": "1.0.0",
     "supabase": "^2.115.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@10.12.2"
 }
