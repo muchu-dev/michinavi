@@ -41,7 +41,13 @@ const memberInputSchema = z.object({
   displayName: z.string().trim().min(1).max(50),
   ageGroup: ageGroupSchema,
   needsAssistance: z.boolean().default(false),
-  careNeedKeys: z.array(careNeedKeySchema).max(10).default([]),
+  careNeedKeys: z
+    .array(careNeedKeySchema)
+    .max(10)
+    .refine((keys) => new Set(keys).size === keys.length, {
+      message: "同じ要配慮種別を複数指定することはできません",
+    })
+    .default([]),
   careNeedDetail: z.string().trim().max(200).optional(),
 });
 
