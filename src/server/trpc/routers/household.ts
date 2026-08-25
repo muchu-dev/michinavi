@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import type { TRPCContext } from "@/server/trpc/init";
 import { toTRPCError } from "@/server/trpc/errors";
+import type { TRPCContext } from "@/server/trpc/init";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc/init";
 
 /** 自宅位置は 10 桁の 4 分の 1 地域メッシュ（約 250m）で受け取る（S1） */
@@ -192,7 +192,10 @@ export const householdRouter = createTRPCRouter({
       throw toTRPCError(error, "世帯の取得に失敗しました");
     }
     if (!member) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "世帯が見つかりません" });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "世帯が見つかりません",
+      });
     }
 
     return fetchHouseholdSnapshot(ctx.supabase, member.household_id);

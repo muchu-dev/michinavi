@@ -7,7 +7,6 @@ import {
   createTestUser,
   deleteTestUser,
   SEED_AREA_IDS,
-  type TestUser,
 } from "./helpers/supabase";
 
 const serviceRole = createServiceRoleClient();
@@ -204,9 +203,9 @@ describe("household.update", () => {
       pets: [],
     });
 
-    expect(
-      result.members.some((m) => m.id === setup.householdMemberId),
-    ).toBe(true);
+    expect(result.members.some((m) => m.id === setup.householdMemberId)).toBe(
+      true,
+    );
     expect(result.members).toHaveLength(2);
   });
 
