@@ -87,13 +87,17 @@ begin
         household_id,
         display_name,
         age_group,
-        needs_assistance
+        needs_assistance,
+        -- 代理登録した安否の共有範囲（E5）。既定は世帯の内側
+        -- （docs/er/01-account-household.md）
+        proxy_share_scope
       )
       values (
         v_household_id,
         v_member ->> 'displayName',
         (v_member ->> 'ageGroup')::public.age_group,
-        (v_member ->> 'needsAssistance')::boolean
+        (v_member ->> 'needsAssistance')::boolean,
+        'household'
       )
       returning id into v_member_id;
     end if;
