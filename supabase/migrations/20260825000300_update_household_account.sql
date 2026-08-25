@@ -57,6 +57,13 @@ begin
       car_count = p_car_count
   where id = v_household_id;
 
+  -- users 側の住所も揃える。
+  -- setup_user_account が両方に書いているため、片方だけ更新すると食い違う
+  update public.users
+  set area_id = p_area_id,
+      home_mesh_code = p_home_mesh_code
+  where id = v_user_id;
+
   -- 3. household_members（人数・年齢層・要配慮）を入力どおりに揃える。
   --    id があれば既存の行を更新し、無ければアカウントを持たない構成員として新規に足す
   for v_member in select * from jsonb_array_elements(coalesce(p_members, '[]'::jsonb))
