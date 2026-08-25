@@ -4,18 +4,103 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@supabase/ssr':
+      specifier: ^0.12.4
+      version: 0.12.4
+    '@supabase/supabase-js':
+      specifier: ^2.112.3
+      version: 2.112.3
+    '@t3-oss/env-core':
+      specifier: ^0.13.11
+      version: 0.13.11
+    '@t3-oss/env-nextjs':
+      specifier: ^0.13.11
+      version: 0.13.11
+    '@types/node':
+      specifier: ^20
+      version: 20.19.43
+    '@typescript/native-preview':
+      specifier: 7.0.0-dev.20260707.2
+      version: 7.0.0-dev.20260707.2
+    '@vitest/coverage-v8':
+      specifier: ^4.1.11
+      version: 4.1.11
+    typescript:
+      specifier: ^5
+      version: 5.9.3
+    vitest:
+      specifier: ^4.1.11
+      version: 4.1.11
+    zod:
+      specifier: ^4.4.3
+      version: 4.4.3
+
 importers:
 
   .:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 2.4.2
+        version: 2.4.2
+      '@typescript/native-preview':
+        specifier: 'catalog:'
+        version: 7.0.0-dev.20260707.2
+      supabase:
+        specifier: ^2.115.0
+        version: 2.115.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  apps/backend:
     dependencies:
-      '@supabase/ssr':
-        specifier: ^0.12.4
-        version: 0.12.4(@supabase/supabase-js@2.112.3)
+      '@michinavi/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@supabase/supabase-js':
-        specifier: ^2.112.3
+        specifier: 'catalog:'
         version: 2.112.3
+      '@t3-oss/env-core':
+        specifier: 'catalog:'
+        version: 0.13.11(typescript@5.9.3)(zod@4.4.3)
+      '@trpc/server':
+        specifier: ^11.18.0
+        version: 11.18.0(typescript@5.9.3)
+      superjson:
+        specifier: ^2.2.6
+        version: 2.2.6
+      ts-pattern:
+        specifier: ^5.9.0
+        version: 5.9.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@michinavi/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.43
+      '@typescript/native-preview':
+        specifier: 'catalog:'
+        version: 7.0.0-dev.20260707.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
+
+  apps/frontend:
+    dependencies:
+      '@michinavi/backend':
+        specifier: workspace:*
+        version: link:../backend
       '@t3-oss/env-nextjs':
-        specifier: ^0.13.11
+        specifier: 'catalog:'
         version: 0.13.11(typescript@5.9.3)(zod@4.4.3)
       '@tanstack/react-query':
         specifier: ^5.101.4
@@ -47,16 +132,10 @@ importers:
       superjson:
         specifier: ^2.2.6
         version: 2.2.6
-      ts-pattern:
-        specifier: ^5.9.0
-        version: 5.9.0
       zod:
-        specifier: ^4.4.3
+        specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@biomejs/biome':
-        specifier: 2.4.2
-        version: 2.4.2
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.3.3
@@ -70,7 +149,7 @@ importers:
         specifier: ^1.9.22
         version: 1.9.22
       '@types/node':
-        specifier: ^20
+        specifier: 'catalog:'
         version: 20.19.43
       '@types/react':
         specifier: ^19
@@ -79,13 +158,13 @@ importers:
         specifier: ^19
         version: 19.2.4(@types/react@19.2.18)
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260707.2
+        specifier: 'catalog:'
         version: 7.0.0-dev.20260707.2
       '@vitejs/plugin-react':
         specifier: ^6.1.0
         version: 6.1.0(babel-plugin-react-compiler@1.0.0)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
       '@vitest/coverage-v8':
-        specifier: ^4.1.11
+        specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
       babel-plugin-react-compiler:
         specifier: 1.0.0
@@ -93,18 +172,50 @@ importers:
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1(@noble/hashes@1.8.0)
-      supabase:
-        specifier: ^2.115.0
-        version: 2.115.0
       tailwindcss:
         specifier: ^4
         version: 4.3.3
       typescript:
-        specifier: ^5
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^4.1.11
+        specifier: 'catalog:'
         version: 4.1.11(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
+
+  packages/db:
+    dependencies:
+      '@supabase/ssr':
+        specifier: 'catalog:'
+        version: 0.12.4(@supabase/supabase-js@2.112.3)
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.112.3
+    devDependencies:
+      '@typescript/native-preview':
+        specifier: 'catalog:'
+        version: 7.0.0-dev.20260707.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/testing:
+    dependencies:
+      '@michinavi/db':
+        specifier: workspace:*
+        version: link:../db
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.112.3
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.43
+      '@typescript/native-preview':
+        specifier: 'catalog:'
+        version: 7.0.0-dev.20260707.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
 
 packages:
 
@@ -1345,10 +1456,6 @@ packages:
     resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
     engines: {node: '>=12'}
 
-  picomatch@4.0.7:
-    resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
-    engines: {node: '>=12'}
-
   postcss@8.5.23:
     resolution: {integrity: sha512-g50586zr4bZmwFiTlflMu8E0bDTb5I5gertgwAKmsdUlTQIhZtunzUlD1WSzwcVWPoAVpsrA6vlfCD7oXvRwgg==}
     engines: {node: ^10 || ^12 || >=14}
@@ -2359,9 +2466,9 @@ snapshots:
 
   expect-type@1.4.0: {}
 
-  fdir@6.5.0(picomatch@4.0.7):
+  fdir@6.5.0(picomatch@4.0.5):
     optionalDependencies:
-      picomatch: 4.0.7
+      picomatch: 4.0.5
 
   fsevents@2.3.3:
     optional: true
@@ -2589,8 +2696,6 @@ snapshots:
 
   picomatch@4.0.5: {}
 
-  picomatch@4.0.7: {}
-
   postcss@8.5.23:
     dependencies:
       nanoid: 3.3.18
@@ -2739,8 +2844,8 @@ snapshots:
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
+      fdir: 6.5.0(picomatch@4.0.5)
+      picomatch: 4.0.5
 
   tinyrainbow@3.1.1: {}
 
@@ -2771,7 +2876,7 @@ snapshots:
   vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0):
     dependencies:
       lightningcss: 1.33.0
-      picomatch: 4.0.7
+      picomatch: 4.0.5
       postcss: 8.5.26
       rolldown: 1.2.5
       tinyglobby: 0.2.17

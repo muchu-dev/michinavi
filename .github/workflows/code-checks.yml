@@ -48,11 +48,11 @@ jobs:
 
       # DB とテストに要るコンテナだけ起動する
       - name: Start Supabase
-        run: pnpm supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,realtime,storage-api,postgres-meta
+        run: pnpm --filter @michinavi/db exec supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,realtime,storage-api,postgres-meta
 
       - name: Test
         run: pnpm test
 
       - name: Stop Supabase
         if: always()
-        run: pnpm supabase stop --no-backup
+        run: pnpm --filter @michinavi/db exec supabase stop --no-backup

@@ -1,0 +1,33 @@
+import { fileURLToPath } from "node:url";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
+  test: {
+    // Supabase を必要としないので、DB を起動せずに単体で実行できる
+    environment: "jsdom",
+    // テストは実装の隣に置く
+    include: ["src/**/*.test.tsx"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      include: [
+        "src/components/app-shell/**/*.tsx",
+        "src/components/map/**/*.tsx",
+        "src/config/navigation.ts",
+      ],
+      thresholds: {
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        statements: 80,
+      },
+    },
+  },
+});

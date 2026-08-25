@@ -1,0 +1,46 @@
+{
+  "name": "@michinavi/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsgo --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@michinavi/backend": "workspace:*",
+    "@t3-oss/env-nextjs": "catalog:",
+    "@tanstack/react-query": "^5.101.4",
+    "@trpc/client": "^11.18.0",
+    "@trpc/react-query": "^11.18.0",
+    "@trpc/server": "^11.18.0",
+    "leaflet": "^1.9.4",
+    "next": "16.3.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-leaflet": "^5.0.0",
+    "superjson": "^2.2.6",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/leaflet": "^1.9.22",
+    "@types/node": "catalog:",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@typescript/native-preview": "catalog:",
+    "@vitejs/plugin-react": "^6.1.0",
+    "@vitest/coverage-v8": "catalog:",
+    "babel-plugin-react-compiler": "1.0.0",
+    "jsdom": "^30.0.1",
+    "tailwindcss": "^4",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
