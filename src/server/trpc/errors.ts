@@ -33,6 +33,11 @@ export function toTRPCError(
       code: "BAD_REQUEST" as const,
       message: "指定された地区が見つかりません",
     }))
+    // DB 関数内の RAISE EXCEPTION（対象の世帯や構成員が見つからない）
+    .with("P0002", () => ({
+      code: "NOT_FOUND" as const,
+      message: "指定された世帯または構成員が見つかりません",
+    }))
     // 一意制約違反
     .with("23505", () => ({
       code: "CONFLICT" as const,

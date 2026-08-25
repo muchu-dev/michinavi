@@ -1,6 +1,22 @@
 import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+
+/**
+ * pnpm の .bin にある supabase シムを実行する。
+ * 拡張子無しの版は #!/bin/sh スクリプトで、Windows のネイティブな
+ * execFileSync では起動できない（ENOENT）ため、Windows だけ .CMD 版を
+ * shell 経由で呼ぶ。相対パスのままだと shell: true 時に cmd.exe が
+ * "./" を解釈できないので絶対パスにする
+ */
+function supabaseBin(): string {
+  return path.resolve(
+    process.platform === "win32"
+      ? "./node_modules/.bin/supabase.CMD"
+      : "./node_modules/.bin/supabase",
+  );
+}
 
 /**
  * ローカルの Supabase から接続情報を取り出す。
@@ -11,14 +27,11 @@ function localSupabaseEnv(): Record<string, string> {
   let output: string;
 
   try {
-    output = execFileSync(
-      "./node_modules/.bin/supabase",
-      ["status", "-o", "env"],
-      {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      },
-    );
+    output = execFileSync(supabaseBin(), ["status", "-o", "env"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      shell: process.platform === "win32",
+    });
   } catch {
     throw new Error(
       "ローカルの Supabase に接続できません。`pnpm supabase start` を実行してからテストしてください。",

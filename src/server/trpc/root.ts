@@ -1,5 +1,6 @@
 import { createTRPCRouter } from "@/server/trpc/init";
 import { healthRouter } from "@/server/trpc/routers/health";
+import { householdRouter } from "@/server/trpc/routers/household";
 import { userRouter } from "@/server/trpc/routers/user";
 
 /**
@@ -9,6 +10,7 @@ import { userRouter } from "@/server/trpc/routers/user";
 export const appRouter = createTRPCRouter({
   health: healthRouter,
   user: userRouter,
+  household: householdRouter,
 });
 
 export type AppRouter = typeof appRouter;

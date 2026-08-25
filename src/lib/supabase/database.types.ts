@@ -56,6 +56,63 @@ export type Database = {
           },
         ];
       };
+      care_needs: {
+        Row: {
+          display_order: number;
+          id: string;
+          is_active: boolean;
+          key: string;
+          label: string;
+        };
+        Insert: {
+          display_order?: number;
+          id?: string;
+          is_active?: boolean;
+          key: string;
+          label: string;
+        };
+        Update: {
+          display_order?: number;
+          id?: string;
+          is_active?: boolean;
+          key?: string;
+          label?: string;
+        };
+        Relationships: [];
+      };
+      household_member_care_needs: {
+        Row: {
+          care_need_id: string;
+          detail: string | null;
+          household_member_id: string;
+        };
+        Insert: {
+          care_need_id: string;
+          detail?: string | null;
+          household_member_id: string;
+        };
+        Update: {
+          care_need_id?: string;
+          detail?: string | null;
+          household_member_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "household_member_care_needs_care_need_id_fkey";
+            columns: ["care_need_id"];
+            isOneToOne: false;
+            referencedRelation: "care_needs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "household_member_care_needs_household_member_id_fkey";
+            columns: ["household_member_id"];
+            isOneToOne: false;
+            referencedRelation: "household_members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       household_members: {
         Row: {
           age_group: Database["public"]["Enums"]["age_group"];
@@ -183,6 +240,44 @@ export type Database = {
           },
         ];
       };
+      pets: {
+        Row: {
+          count: number;
+          household_id: string;
+          id: string;
+          is_crate_trained: boolean;
+          note: string | null;
+          size: Database["public"]["Enums"]["pet_size"];
+          species: Database["public"]["Enums"]["pet_species"];
+        };
+        Insert: {
+          count?: number;
+          household_id: string;
+          id?: string;
+          is_crate_trained?: boolean;
+          note?: string | null;
+          size: Database["public"]["Enums"]["pet_size"];
+          species: Database["public"]["Enums"]["pet_species"];
+        };
+        Update: {
+          count?: number;
+          household_id?: string;
+          id?: string;
+          is_crate_trained?: boolean;
+          note?: string | null;
+          size?: Database["public"]["Enums"]["pet_size"];
+          species?: Database["public"]["Enums"]["pet_species"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pets_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       users: {
         Row: {
           area_id: string | null;
@@ -259,10 +354,34 @@ export type Database = {
           user_id: string;
         }[];
       };
+      update_household_account: {
+        Args: {
+          p_area_id: string;
+          p_car_count: number;
+          p_home_mesh_code: string;
+          p_members: Json;
+          p_pets?: Json;
+        };
+        Returns: {
+          area_id: string;
+          car_count: number;
+          has_car: boolean;
+          home_mesh_code: string;
+          household_id: string;
+        }[];
+      };
     };
     Enums: {
       age_group: "infant" | "child" | "adult" | "senior";
       mesh_level: "mesh_1km" | "mesh_500m" | "mesh_250m" | "mesh_125m";
+      pet_size: "small" | "medium" | "large";
+      pet_species:
+        | "dog"
+        | "cat"
+        | "small_animal"
+        | "bird"
+        | "reptile"
+        | "other";
       status_share_scope: "household" | "family" | "none";
       verification_level: "anonymous" | "email" | "phone";
     };
@@ -397,6 +516,8 @@ export const Constants = {
     Enums: {
       age_group: ["infant", "child", "adult", "senior"],
       mesh_level: ["mesh_1km", "mesh_500m", "mesh_250m", "mesh_125m"],
+      pet_size: ["small", "medium", "large"],
+      pet_species: ["dog", "cat", "small_animal", "bird", "reptile", "other"],
       status_share_scope: ["household", "family", "none"],
       verification_level: ["anonymous", "email", "phone"],
     },
