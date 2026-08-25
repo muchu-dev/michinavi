@@ -1,5 +1,7 @@
 # みちナビ
 
+Tornado 2026 チームA
+
 ## Getting Started
 
 - [mise](https://mise.jdx.dev/) — Node.js と pnpm のバージョンを `mise.toml` で固定しています
