@@ -144,10 +144,15 @@ begin
       using errcode = '23514';
   end if;
 
-  -- 入力に含まれなかった構成員は脱退として扱う。本人の行（is_primary）は対象外
+  -- 入力に含まれなかった構成員は脱退として扱う。本人の行（is_primary）は対象外。
+  -- 構成員を外せるのは管理者だけ（RLS の household_members_delete_owner と揃える）。
+  -- この関数は security definer で RLS を通らないため、アカウントを持つ構成員は
+  -- ここでは消さない。招待機能の実装後は、アカウントを持つ構成員の削除を
+  -- 管理者向けの別経路（RLS が効く）に用意すること
   delete from public.household_members hm
   where hm.household_id = v_household_id
     and not hm.is_primary
+    and hm.user_id is null
     and hm.id <> all (v_keep_member_ids);
 
   -- 4. pets（ペット）を入力どおり全置換する
