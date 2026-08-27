@@ -57,6 +57,11 @@ const memberInputSchema = z.object({
     .default([]),
 });
 
+/**
+ * pets は保存のたびに delete + insert で全置換するため、返ってくる id は
+ * 保存のたびに変わる。クライアント側で外部から参照しない
+ * （写真の紐付けなどを始める場合は id を入力に取る upsert に変更すること）
+ */
 const petInputSchema = z.object({
   species: petSpeciesSchema,
   size: petSizeSchema,
@@ -69,7 +74,11 @@ const updateInputSchema = z.object({
   areaId: z.uuid(),
   homeMeshCode: meshCodeSchema,
   carCount: z.int().min(0).max(20),
-  /** 入力どおりに全置換する。本人（is_primary）の行は自分の id を含めて渡す */
+  /**
+   * 入力どおりに全置換する。本人（is_primary）の行は自分の id を含めて渡すこと。
+   * 含めなかった場合は「送った人数」と「返る人数」が食い違うのを防ぐため、
+   * サイレントに残さずエラーになる
+   */
   members: z.array(memberInputSchema).min(1).max(20),
   /** 入力どおりに全置換する */
   pets: z.array(petInputSchema).max(20).default([]),
@@ -106,7 +115,7 @@ async function fetchHouseholdSnapshot(
       .from("pets")
       .select("id, species, size, count, is_crate_trained, note")
       .eq("household_id", householdId)
-      .order("id", { ascending: true }),
+      .order("created_at", { ascending: true }),
   ]);
 
   if (householdError) {
@@ -128,33 +137,13 @@ async function fetchHouseholdSnapshot(
     memberIds.length > 0
       ? await supabase
           .from("household_member_care_needs")
-          .select("household_member_id, care_need_id, detail")
+          .select("household_member_id, detail, care_needs(key, display_order)")
           .in("household_member_id", memberIds)
       : { data: [], error: null };
 
   if (careNeedLinksError) {
     throw toTRPCError(careNeedLinksError, "要配慮の取得に失敗しました");
   }
-
-  const careNeedIds = [
-    ...new Set((careNeedLinks ?? []).map((link) => link.care_need_id)),
-  ];
-
-  const { data: careNeeds, error: careNeedsError } =
-    careNeedIds.length > 0
-      ? await supabase
-          .from("care_needs")
-          .select("id, key")
-          .in("id", careNeedIds)
-      : { data: [], error: null };
-
-  if (careNeedsError) {
-    throw toTRPCError(careNeedsError, "要配慮の取得に失敗しました");
-  }
-
-  const careNeedKeyById = new Map(
-    (careNeeds ?? []).map((careNeed) => [careNeed.id, careNeed.key]),
-  );
 
   return {
     household: {
@@ -165,9 +154,13 @@ async function fetchHouseholdSnapshot(
       hasCar: household.has_car,
     },
     members: (members ?? []).map((member) => {
-      const links = (careNeedLinks ?? []).filter(
-        (link) => link.household_member_id === member.id,
-      );
+      const links = (careNeedLinks ?? [])
+        .filter((link) => link.household_member_id === member.id)
+        .sort(
+          (a, b) =>
+            (a.care_needs?.display_order ?? 0) -
+            (b.care_needs?.display_order ?? 0),
+        );
 
       return {
         id: member.id,
@@ -176,10 +169,11 @@ async function fetchHouseholdSnapshot(
         ageGroup: member.age_group,
         needsAssistance: member.needs_assistance,
         isPrimary: member.is_primary,
-        careNeeds: links.flatMap((link) => {
-          const key = careNeedKeyById.get(link.care_need_id);
-          return key ? [{ key, detail: link.detail }] : [];
-        }),
+        careNeeds: links.flatMap((link) =>
+          link.care_needs
+            ? [{ key: link.care_needs.key, detail: link.detail }]
+            : [],
+        ),
       };
     }),
     pets: (pets ?? []).map((pet) => ({
@@ -220,8 +214,13 @@ export const householdRouter = createTRPCRouter({
    * 人数・年齢層・要配慮者・ペット・車の有無・住所をまとめて更新する（BE-09）。
    *
    * 対象の世帯は JWT から解決するため household_id は入力に持たない。
-   * members と pets は入力どおりに全置換する。本人（is_primary）の構成員行だけは
-   * 入力から漏れても削除されない。
+   * members と pets は入力どおりに全置換する。本人（is_primary）の構成員行は
+   * 入力に含まれていないと更新自体が失敗する（BAD_REQUEST）— 黙って残すと
+   * 「送った人数」と「返る人数」が食い違うため。
+   *
+   * 戻り値は update_household_account のトランザクション内のスナップショットではなく、
+   * コミット後に fetchHouseholdSnapshot で読み直した結果。同時更新が挟まると、
+   * このリクエストで書いた内容と完全には一致しない場合がある
    */
   update: protectedProcedure
     .input(updateInputSchema)

@@ -58,6 +58,7 @@ export type Database = {
       };
       care_needs: {
         Row: {
+          created_at: string;
           display_order: number;
           id: string;
           is_active: boolean;
@@ -65,6 +66,7 @@ export type Database = {
           label: string;
         };
         Insert: {
+          created_at?: string;
           display_order?: number;
           id?: string;
           is_active?: boolean;
@@ -72,6 +74,7 @@ export type Database = {
           label: string;
         };
         Update: {
+          created_at?: string;
           display_order?: number;
           id?: string;
           is_active?: boolean;
@@ -243,6 +246,7 @@ export type Database = {
       pets: {
         Row: {
           count: number;
+          created_at: string;
           household_id: string;
           id: string;
           is_crate_trained: boolean;
@@ -252,6 +256,7 @@ export type Database = {
         };
         Insert: {
           count?: number;
+          created_at?: string;
           household_id: string;
           id?: string;
           is_crate_trained?: boolean;
@@ -261,6 +266,7 @@ export type Database = {
         };
         Update: {
           count?: number;
+          created_at?: string;
           household_id?: string;
           id?: string;
           is_crate_trained?: boolean;

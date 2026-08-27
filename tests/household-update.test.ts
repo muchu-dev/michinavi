@@ -186,27 +186,34 @@ describe("household.update", () => {
     expect(memberCount).toBe(1);
   });
 
-  test("本人（is_primary）の行は入力から漏れても削除されない", async () => {
+  test("本人（is_primary）の行が入力に無いとエラーになる", async () => {
     const { caller, setup } = await newHouseholdUser();
 
-    const result = await caller.household.update({
-      areaId: SEED_AREA_IDS.mabiYata,
-      homeMeshCode: "5133451124",
-      carCount: 0,
-      members: [
-        {
-          displayName: "山田次郎",
-          ageGroup: "child",
-          needsAssistance: false,
-        },
-      ],
-      pets: [],
-    });
+    const error = await caller.household
+      .update({
+        areaId: SEED_AREA_IDS.mabiYata,
+        homeMeshCode: "5133451124",
+        carCount: 0,
+        members: [
+          {
+            displayName: "山田次郎",
+            ageGroup: "child",
+            needsAssistance: false,
+          },
+        ],
+        pets: [],
+      })
+      .catch((caught: unknown) => caught);
 
-    expect(result.members.some((m) => m.id === setup.householdMemberId)).toBe(
-      true,
-    );
-    expect(result.members).toHaveLength(2);
+    expect(error).toBeInstanceOf(TRPCError);
+    expect(error).toMatchObject({ code: "BAD_REQUEST" });
+
+    // 送った人数と食い違わないよう、本人の行は増えていない
+    const { count } = await serviceRole
+      .from("household_members")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", setup.household.id);
+    expect(count).toBe(1);
   });
 
   test("未認証のリクエストは実行できない", async () => {

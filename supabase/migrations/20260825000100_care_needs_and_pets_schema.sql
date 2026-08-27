@@ -27,7 +27,8 @@ create table public.care_needs (
   key text not null unique,
   label text not null,
   display_order smallint not null default 0,
-  is_active boolean not null default true
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
 );
 
 comment on table public.care_needs is
@@ -75,11 +76,14 @@ create table public.pets (
   -- 避難所の受入条件がほぼ「ケージに入れられること」を前提にしている
   is_crate_trained boolean not null default false,
   note text,
+  created_at timestamptz not null default now(),
   constraint pets_count_positive check (count > 0)
 );
 
 comment on table public.pets is
-  '世帯のペット。避難所の受入条件（D2）との突き合わせに使う';
+  '世帯のペット。避難所の受入条件（D2）との突き合わせに使う。'
+  '更新のたびに delete + insert で全置換するため、id は保存のたびに変わる。'
+  '外部から pets.id を参照しない（写真の紐付けなどを始める場合は upsert に変更すること）';
 
 create index pets_household_id_idx on public.pets (household_id);
 

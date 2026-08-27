@@ -130,6 +130,20 @@ begin
     end if;
   end loop;
 
+  -- 入力に本人の行が無いのはクライアント側のバグである可能性が高い。
+  -- 黙って残すと「送った人数」と「返る人数」が食い違う
+  if not exists (
+    select 1
+    from public.household_members hm
+    where hm.household_id = v_household_id
+      and hm.user_id = v_user_id
+      and hm.is_primary
+      and hm.id = any (v_keep_member_ids)
+  ) then
+    raise exception '本人の構成員を入力に含めてください'
+      using errcode = '23514';
+  end if;
+
   -- 入力に含まれなかった構成員は脱退として扱う。本人の行（is_primary）は対象外
   delete from public.household_members hm
   where hm.household_id = v_household_id
