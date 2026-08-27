@@ -167,6 +167,6 @@ group by h.id, s.id;
 
 ## 取り込み運用
 
-出典データは `supabase/seed/` に CSV で置き、`external_code` を突合キーに UPSERT する。
+出典データは `packages/db/supabase/seed/` に CSV で置き、`external_code` を突合キーに UPSERT する。
 再取り込みで行を消して入れ直さないのは、`evacuation_decisions` や `route_proposals` から `shelter_id` を参照しているためで、削除すると過去の避難記録が壊れる。
 廃止された施設は `is_active = false` にする。
