@@ -28,10 +28,16 @@ export function toTRPCError(
       code: "FORBIDDEN" as const,
       message: "この操作は許可されていません",
     }))
-    // 参照先が無い（存在しない地区など）
+    // 参照先が無い（存在しない地区など）。23503 は地区専用ではないため、
+    // 断定しすぎないメッセージにする
     .with("23503", () => ({
       code: "BAD_REQUEST" as const,
-      message: "指定された地区が見つかりません",
+      message: "指定された値が正しくありません",
+    }))
+    // DB 関数内の RAISE EXCEPTION（対象の世帯や構成員が見つからない）
+    .with("P0002", () => ({
+      code: "NOT_FOUND" as const,
+      message: "指定された世帯または構成員が見つかりません",
     }))
     // 一意制約違反
     .with("23505", () => ({

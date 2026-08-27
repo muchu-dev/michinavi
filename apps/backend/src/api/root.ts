@@ -1,5 +1,6 @@
 import { createTRPCRouter } from "./init";
 import { healthRouter } from "./routers/health";
+import { householdRouter } from "./routers/household";
 import { userRouter } from "./routers/user";
 
 /**
@@ -9,6 +10,7 @@ import { userRouter } from "./routers/user";
 export const appRouter = createTRPCRouter({
   health: healthRouter,
   user: userRouter,
+  household: householdRouter,
 });
 
 export type AppRouter = typeof appRouter;
