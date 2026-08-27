@@ -93,11 +93,14 @@ async function fetchHouseholdSnapshot(
       .select(
         "id, display_name, age_group, needs_assistance, is_primary, user_id",
       )
-      .eq("household_id", householdId),
+      .eq("household_id", householdId)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true }),
     supabase
       .from("pets")
       .select("id, species, size, count, is_crate_trained, note")
-      .eq("household_id", householdId),
+      .eq("household_id", householdId)
+      .order("id", { ascending: true }),
   ]);
 
   if (householdError) {
