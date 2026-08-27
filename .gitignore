@@ -24,6 +24,11 @@ build/
 .DS_Store
 *.pem
 
+# Codex personal runtime/cache and project-local harness files.
+/.codex/
+/.agents/
+/docs/ai-harness/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

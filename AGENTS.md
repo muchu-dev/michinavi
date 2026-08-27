@@ -7,3 +7,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Project task source of truth
+
+- The canonical task tracker is the Google Sheet documented in `docs/tasks/README.md`.
+- Before planning or implementing project work, run `mise exec -- pnpm tasks:check` and read the relevant entries in `docs/tasks/all-tasks.md`.
+- If the check reports changes, run `mise exec -- pnpm tasks:sync` before continuing.
+- Never write back to the Google Sheet unless the user explicitly asks for that update.
