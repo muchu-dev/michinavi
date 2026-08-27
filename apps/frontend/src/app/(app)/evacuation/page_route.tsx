@@ -91,13 +91,21 @@ function TravelModeIcon({
           <path d="m11.8 12.2 2.8 2.3v4.8h-1.8v-3.9l-2.5-1.9Z" />
         </svg>
       ) : travelMode === "car" ? (
-        <svg viewBox="0 0 24 24" className="size-7 fill-none stroke-current stroke-2" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          className="size-7 fill-none stroke-current stroke-2"
+          aria-hidden="true"
+        >
           <path d="m5 11 2-5h10l2 5M4 11h16v7H4zM7 18v2M17 18v2" />
           <circle cx="7.5" cy="14.5" r="1" fill="currentColor" />
           <circle cx="16.5" cy="14.5" r="1" fill="currentColor" />
         </svg>
       ) : (
-        <svg viewBox="0 0 24 24" className="size-7 fill-none stroke-current stroke-2" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          className="size-7 fill-none stroke-current stroke-2"
+          aria-hidden="true"
+        >
           <path d="m4 11 8-7 8 7v9H4z" />
           <path d="M9 20v-7h6v7" />
         </svg>
@@ -114,6 +122,7 @@ export function PageRoute() {
         <MapView />
 
         <div
+          role="img"
           aria-label="現在地"
           className="pointer-events-none absolute left-[13%] top-4 z-[550] grid size-9 place-items-center rounded-full border-[3px] border-white bg-[#ef625c] text-white shadow-card"
         >
@@ -169,7 +178,9 @@ export function PageRoute() {
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-black text-ink">{option.title}</h3>
+                    <h3 className="text-base font-black text-ink">
+                      {option.title}
+                    </h3>
                     {option.recommended && (
                       <span className="rounded-md bg-passable px-2 py-1 text-[0.6875rem] font-black text-white">
                         推奨
@@ -181,7 +192,8 @@ export function PageRoute() {
                       <>即時 / {option.destination}</>
                     ) : (
                       <>
-                        約{option.durationMinutes}分・{option.distanceKm?.toFixed(1)}km / {option.destination}
+                        約{option.durationMinutes}分・
+                        {option.distanceKm?.toFixed(1)}km / {option.destination}
                       </>
                     )}
                   </p>
@@ -194,7 +206,10 @@ export function PageRoute() {
                   </p>
                 </div>
 
-                <span className="text-2xl font-light text-muted" aria-hidden="true">
+                <span
+                  className="text-2xl font-light text-muted"
+                  aria-hidden="true"
+                >
                   ›
                 </span>
               </article>

@@ -12,8 +12,8 @@ export default function EvacuationPage() {
 
   // 選択中のタブに合わせて共通ヘッダーの背景色を変更
   useEffect(() => {
-    const appHeader = document.getElementById("main-content")
-      ?.previousElementSibling;
+    const appHeader =
+      document.getElementById("main-content")?.previousElementSibling;
 
     if (!(appHeader instanceof HTMLElement)) return;
 

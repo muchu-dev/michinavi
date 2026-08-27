@@ -62,15 +62,10 @@ async function getRouteDistances(
     currentLocation,
     ...shelters.map((shelter) => shelter.location),
   ]
-    .map(
-      (location) =>
-        `${location.longitude},${location.latitude}`,
-    )
+    .map((location) => `${location.longitude},${location.latitude}`)
     .join(";");
 
-  const destinations = shelters
-    .map((_, index) => index + 1)
-    .join(";");
+  const destinations = shelters.map((_, index) => index + 1).join(";");
 
   const url =
     `https://router.project-osrm.org/table/v1/driving/${coordinates}` +
@@ -82,21 +77,14 @@ async function getRouteDistances(
     throw new Error("OSRMから距離を取得できませんでした。");
   }
 
-  const data: OsrmTableResponse =
-    await response.json();
+  const data: OsrmTableResponse = await response.json();
 
-  if (
-    data.code !== "Ok" ||
-    !data.distances?.[0]
-  ) {
+  if (data.code !== "Ok" || !data.distances?.[0]) {
     throw new Error("OSRMで経路を計算できませんでした。");
   }
 
-  return data.distances[0].map(
-    (distance) =>
-      distance === null
-        ? null
-        : distance / 1000,
+  return data.distances[0].map((distance) =>
+    distance === null ? null : distance / 1000,
   );
 }
 
@@ -119,6 +107,7 @@ function AcceptanceIcon({ type, available }: AcceptanceIconProps) {
 
   return (
     <span
+      role="img"
       className={`grid size-8 place-items-center rounded-md border ${
         available
           ? "border-brand/25 bg-brand/10 text-brand"
@@ -240,7 +229,8 @@ export function PageShelter() {
         setSortedShelters(sheltersWithDistance);
         setSheltersUpdatedAt(getCurrentTime());
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
 
         setLocationError(
           error instanceof Error
@@ -263,10 +253,15 @@ export function PageShelter() {
         <MapView />
 
         <div
+          role="img"
           aria-label="現在地"
           className="pointer-events-none absolute left-[13%] top-4 z-[550] grid size-9 place-items-center rounded-full border-[3px] border-white bg-[#ef625c] text-white shadow-card"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-none stroke-current stroke-[2.2]">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="size-4 fill-none stroke-current stroke-[2.2]"
+          >
             <path d="M12 21s6-5.4 6-11a6 6 0 1 0-12 0c0 5.6 6 11 6 11Z" />
             <circle cx="12" cy="10" r="2" />
           </svg>
@@ -290,9 +285,15 @@ export function PageShelter() {
       </div>
 
       {/*下半分の近隣の避難所一覧を表示*/}
-      <section className="px-3 pb-5 pt-3" aria-labelledby="nearby-shelters-title">
+      <section
+        className="px-3 pb-5 pt-3"
+        aria-labelledby="nearby-shelters-title"
+      >
         <div className="mb-2 flex items-center justify-between gap-3 px-1">
-          <h2 id="nearby-shelters-title" className="text-sm font-black text-ink">
+          <h2
+            id="nearby-shelters-title"
+            className="text-sm font-black text-ink"
+          >
             近隣の避難所
           </h2>
           <div className="flex items-center gap-2">
@@ -318,7 +319,10 @@ export function PageShelter() {
         </div>
 
         {locationError && (
-          <p role="alert" className="mb-2 px-1 text-[0.6875rem] font-bold text-impassable">
+          <p
+            role="alert"
+            className="mb-2 px-1 text-[0.6875rem] font-bold text-impassable"
+          >
             {locationError}
           </p>
         )}
@@ -330,7 +334,9 @@ export function PageShelter() {
               className="flex items-center gap-3 rounded-xl border border-outline bg-white px-3 py-2.5 shadow-[0_2px_8px_rgb(38_47_44/0.05)]"
             >
               <div className="min-w-0 flex-1">
-                <h3 className="truncate text-sm font-black text-ink">{shelter.name}</h3>
+                <h3 className="truncate text-sm font-black text-ink">
+                  {shelter.name}
+                </h3>
                 <p className="mt-0.5 text-[0.6875rem] font-bold text-muted">
                   {shelter.distanceKm === null
                     ? "道路経路なし"
@@ -340,17 +346,29 @@ export function PageShelter() {
                           : Math.round(shelter.distanceKm)
                       }km`}
                 </p>
-                <div className="mt-2 flex gap-1.5" aria-label="受け入れ条件">
-                  <AcceptanceIcon type="pets" available={shelter.accepts.pets} />
-                  <AcceptanceIcon type="infants" available={shelter.accepts.infants} />
+                <fieldset
+                  className="mt-2 flex min-w-0 gap-1.5 border-0 p-0"
+                  aria-label="受け入れ条件"
+                >
+                  <AcceptanceIcon
+                    type="pets"
+                    available={shelter.accepts.pets}
+                  />
+                  <AcceptanceIcon
+                    type="infants"
+                    available={shelter.accepts.infants}
+                  />
                   <AcceptanceIcon
                     type="wheelchair"
                     available={shelter.accepts.wheelchair}
                   />
-                </div>
+                </fieldset>
               </div>
               {/* 将来の詳細画面への遷移を示す矢印を表示 */}
-              <span className="text-xl font-light text-muted" aria-hidden="true">
+              <span
+                className="text-xl font-light text-muted"
+                aria-hidden="true"
+              >
                 ›
               </span>
             </article>
