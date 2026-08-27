@@ -45,7 +45,7 @@ describe("household.get", () => {
     expect(result.members).toHaveLength(1);
     expect(result.members[0]?.isPrimary).toBe(true);
     expect(result.members[0]?.ageGroup).toBe("adult");
-    expect(result.members[0]?.careNeedKeys).toEqual([]);
+    expect(result.members[0]?.careNeeds).toEqual([]);
     expect(result.pets).toEqual([]);
   });
 
@@ -83,14 +83,13 @@ describe("household.update", () => {
           displayName: "山田太郎",
           ageGroup: "adult",
           needsAssistance: false,
-          careNeedKeys: ["wheelchair"],
-          careNeedDetail: "電動車いすを使用",
+          careNeeds: [{ key: "wheelchair", detail: "電動車いすを使用" }],
         },
         {
           displayName: "山田花子",
           ageGroup: "senior",
           needsAssistance: true,
-          careNeedKeys: ["dementia"],
+          careNeeds: [{ key: "dementia" }],
         },
       ],
       pets: [
@@ -105,14 +104,15 @@ describe("household.update", () => {
 
     expect(result.members).toHaveLength(2);
     const primary = result.members.find((m) => m.id === primaryMemberId);
-    expect(primary?.careNeedKeys).toEqual(["wheelchair"]);
-    expect(primary?.careNeedDetail).toBe("電動車いすを使用");
+    expect(primary?.careNeeds).toEqual([
+      { key: "wheelchair", detail: "電動車いすを使用" },
+    ]);
 
     const newMember = result.members.find((m) => m.id !== primaryMemberId);
     expect(newMember?.displayName).toBe("山田花子");
     expect(newMember?.ageGroup).toBe("senior");
     expect(newMember?.needsAssistance).toBe(true);
-    expect(newMember?.careNeedKeys).toEqual(["dementia"]);
+    expect(newMember?.careNeeds).toEqual([{ key: "dementia", detail: null }]);
     expect(newMember?.userId).toBeNull();
 
     expect(result.pets).toHaveLength(1);
@@ -145,13 +145,13 @@ describe("household.update", () => {
           displayName: "山田太郎",
           ageGroup: "adult",
           needsAssistance: false,
-          careNeedKeys: [],
+          careNeeds: [],
         },
         {
           displayName: "山田次郎",
           ageGroup: "child",
           needsAssistance: false,
-          careNeedKeys: [],
+          careNeeds: [],
         },
       ],
       pets: [{ species: "cat", size: "small", count: 2 }],
@@ -169,7 +169,7 @@ describe("household.update", () => {
           displayName: "山田太郎",
           ageGroup: "adult",
           needsAssistance: false,
-          careNeedKeys: [],
+          careNeeds: [],
         },
       ],
       pets: [],
@@ -258,6 +258,44 @@ describe("household.update", () => {
     expect(data?.display_name).toBe("山田太郎");
   });
 
+  test("無効化された要配慮は黙って捨てずにエラーになる", async () => {
+    const { caller, setup } = await newHouseholdUser();
+
+    const { error: deactivateError } = await serviceRole
+      .from("care_needs")
+      .update({ is_active: false })
+      .eq("key", "language_support");
+    expect(deactivateError).toBeNull();
+
+    const error = await caller.household
+      .update({
+        areaId: SEED_AREA_IDS.mabiYata,
+        homeMeshCode: "5133451124",
+        carCount: 0,
+        members: [
+          {
+            id: setup.householdMemberId,
+            displayName: "山田太郎",
+            ageGroup: "adult",
+            needsAssistance: false,
+            careNeeds: [{ key: "language_support" }],
+          },
+        ],
+        pets: [],
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(TRPCError);
+    expect(error).toMatchObject({ code: "NOT_FOUND" });
+
+    // エラーになった以上、要配慮は 1 件も保存されていない
+    const { count } = await serviceRole
+      .from("household_member_care_needs")
+      .select("household_member_id", { count: "exact", head: true })
+      .eq("household_member_id", setup.householdMemberId);
+    expect(count).toBe(0);
+  });
+
   test("入力の検証で弾かれる", async () => {
     const { caller } = await newHouseholdUser();
 
@@ -296,7 +334,7 @@ describe("household.update", () => {
             displayName: "検証",
             ageGroup: "adult",
             needsAssistance: false,
-            careNeedKeys: ["not_a_real_care_need"] as never,
+            careNeeds: [{ key: "not_a_real_care_need" }] as never,
           },
         ],
         pets: [],

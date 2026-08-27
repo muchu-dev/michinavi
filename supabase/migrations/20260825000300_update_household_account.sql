@@ -28,6 +28,7 @@ declare
   v_member jsonb;
   v_member_id uuid;
   v_keep_member_ids uuid[] := '{}';
+  v_care_need_count int;
 begin
   -- 1. 対象の世帯を JWT から解決する。呼び出し元の既定の世帯に限る
   v_user_id := auth.uid();
@@ -104,17 +105,29 @@ begin
 
     v_keep_member_ids := v_keep_member_ids || v_member_id;
 
-    -- 要配慮は構成員ごとに入力どおり全置換する
+    -- 要配慮は構成員 × 種別ごとに入力どおり全置換する。detail は種別ごとに別々に持てる
     delete from public.household_member_care_needs
     where household_member_id = v_member_id;
 
     insert into public.household_member_care_needs (household_member_id, care_need_id, detail)
-    select
+    select distinct
       v_member_id,
       c.id,
-      nullif(btrim(v_member ->> 'careNeedDetail'), '')
-    from jsonb_array_elements_text(coalesce(v_member -> 'careNeedKeys', '[]'::jsonb)) as k(value)
-    join public.care_needs c on c.key = k.value;
+      nullif(btrim(cn ->> 'detail'), '')
+    from jsonb_array_elements(coalesce(v_member -> 'careNeeds', '[]'::jsonb)) as cn
+    join public.care_needs c on c.key = (cn ->> 'key')
+    where c.is_active;
+
+    get diagnostics v_care_need_count = row_count;
+
+    -- マスタに無いキー、無効化されたキーを黙って捨てない
+    if v_care_need_count <> (
+      select count(distinct cn ->> 'key')
+      from jsonb_array_elements(coalesce(v_member -> 'careNeeds', '[]'::jsonb)) as cn
+    ) then
+      raise exception '存在しない要配慮です'
+        using errcode = 'P0002';
+    end if;
   end loop;
 
   -- 入力に含まれなかった構成員は脱退として扱う。本人の行（is_primary）は対象外

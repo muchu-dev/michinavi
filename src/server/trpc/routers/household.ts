@@ -35,20 +35,26 @@ const petSpeciesSchema = z.enum([
 ]);
 const petSizeSchema = z.enum(["small", "medium", "large"]);
 
+/** 要配慮は構成員 × 種別ごとに別々の自由記述を持てる（例: 車いす→電動、持病→降圧剤） */
+const careNeedInputSchema = z.object({
+  key: careNeedKeySchema,
+  detail: z.string().trim().max(200).optional(),
+});
+
 const memberInputSchema = z.object({
   /** 省略すると新規の構成員（アカウント無し）として追加する */
   id: z.uuid().optional(),
   displayName: z.string().trim().min(1).max(50),
   ageGroup: ageGroupSchema,
   needsAssistance: z.boolean().default(false),
-  careNeedKeys: z
-    .array(careNeedKeySchema)
+  careNeeds: z
+    .array(careNeedInputSchema)
     .max(10)
-    .refine((keys) => new Set(keys).size === keys.length, {
-      message: "同じ要配慮種別を複数指定することはできません",
-    })
+    .refine(
+      (needs) => new Set(needs.map((need) => need.key)).size === needs.length,
+      { message: "同じ要配慮種別を複数指定することはできません" },
+    )
     .default([]),
-  careNeedDetail: z.string().trim().max(200).optional(),
 });
 
 const petInputSchema = z.object({
@@ -170,10 +176,10 @@ async function fetchHouseholdSnapshot(
         ageGroup: member.age_group,
         needsAssistance: member.needs_assistance,
         isPrimary: member.is_primary,
-        careNeedKeys: links
-          .map((link) => careNeedKeyById.get(link.care_need_id))
-          .filter((key): key is string => key !== undefined),
-        careNeedDetail: links.find((link) => link.detail)?.detail ?? null,
+        careNeeds: links.flatMap((link) => {
+          const key = careNeedKeyById.get(link.care_need_id);
+          return key ? [{ key, detail: link.detail }] : [];
+        }),
       };
     }),
     pets: (pets ?? []).map((pet) => ({
@@ -230,8 +236,10 @@ export const householdRouter = createTRPCRouter({
             displayName: member.displayName,
             ageGroup: member.ageGroup,
             needsAssistance: member.needsAssistance,
-            careNeedKeys: member.careNeedKeys,
-            careNeedDetail: member.careNeedDetail ?? null,
+            careNeeds: member.careNeeds.map((need) => ({
+              key: need.key,
+              detail: need.detail ?? null,
+            })),
           })),
           p_pets: input.pets.map((pet) => ({
             species: pet.species,
