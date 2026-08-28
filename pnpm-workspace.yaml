@@ -1,3 +1,21 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# 共有ツールのバージョンを一箇所で決める。
+# 各 package.json では "catalog:" と書く
+catalog:
+  "@t3-oss/env-core": ^0.13.11
+  "@t3-oss/env-nextjs": ^0.13.11
+  "@types/node": ^20
+  "@supabase/ssr": ^0.12.4
+  "@supabase/supabase-js": ^2.112.3
+  "@typescript/native-preview": 7.0.0-dev.20260707.2
+  "@vitest/coverage-v8": ^4.1.11
+  typescript: ^5
+  vitest: ^4.1.11
+  zod: ^4.4.3
+
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver

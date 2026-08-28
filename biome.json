@@ -9,10 +9,10 @@
     "ignoreUnknown": true,
     "includes": [
       "**",
-      "!node_modules",
-      "!.next",
-      "!dist",
-      "!build",
+      "!**/node_modules",
+      "!**/.next",
+      "!**/dist",
+      "!**/build",
       "!docs/tasks/google-sheet-snapshot.json"
     ]
   },

@@ -20,9 +20,25 @@ git clone git@github.com:muchu-dev/michinavi.git
 cd michinavi
 
 mise install   # Node.js / pnpm を導入
-cp .env.example .env.local
+cp apps/frontend/.env.example apps/frontend/.env.local
 pnpm install   # 依存パッケージを導入
+pnpm db:start  # ローカルの Supabase を起動（→「ローカルの Supabase」）
 pnpm dev       # http://localhost:3000
+```
+
+## ディレクトリ構成
+
+pnpm workspace のモノレポです。
+
+```
+michinavi/
+├── apps/
+│   ├── frontend/   @michinavi/frontend  画面と、バックエンドのマウント
+│   └── backend/    @michinavi/backend   tRPC の router
+├── packages/
+│   ├── db/         @michinavi/db
+│   └── ...
+└── docs/          ドキュメント
 ```
 
 ### 認証を迂回して画面を確認する
@@ -53,8 +69,8 @@ DB のマイグレーションと RLS はローカルの Supabase で確認し�
 Docker が動いている状態で次を実行してください。
 
 ```bash
-pnpm supabase start   # 初回はイメージの取得に数分かかります
-pnpm supabase db reset  # マイグレーションと seed を流し直す
+pnpm db:start   # 初回はイメージの取得に数分かかります
+pnpm db:reset   # マイグレーションと seed を流し直す
 ```
 
 | 用途 | URL |
@@ -63,24 +79,37 @@ pnpm supabase db reset  # マイグレーションと seed を流し直す
 | Studio | http://127.0.0.1:54323 |
 | Postgres | postgresql://postgres:postgres@127.0.0.1:54322/postgres |
 
-`supabase/migrations/` に SQL を足したら、`pnpm supabase db reset` で初期状態から流し直して確認します。
+`packages/db/supabase/migrations/` に SQL を足したら、`pnpm db:reset` で初期状態から流し直して確認してください。
 テーブルを追加したときは、RLS の有効化とポリシーを同じマイグレーションに含めてください（[docs/er/07-safety-moderation.md](docs/er/07-safety-moderation.md)）。
+
+**ブランチを移ったら `pnpm db:reset` を実行してください。** DB は前のブランチのマイグレーションを適用したまま残るため、リセットしないと手元だけが他の誰とも違うスキーマになります。
 
 型定義は起動中のローカル DB から生成します。
 
 ```bash
-pnpm supabase gen types typescript --local --schema public > src/lib/supabase/database.types.ts
+pnpm db:types   # packages/db/src/database.types.ts を書き換える
+```
+
+その他のコマンドは `packages/db` の scripts に揃えてあります。
+
+```bash
+pnpm db:stop
+pnpm db --help                                  # supabase CLI へそのまま渡す
+pnpm --filter @michinavi/db migration:new <名前>  # 空のマイグレーションを作る
+pnpm --filter @michinavi/db diff -f <名前>        # DB との差分をマイグレーションに書き出す
 ```
 
 ## テスト
 
 ローカルの Supabase に対して実際に読み書きし、RLS と DB 関数の挙動まで確認します。
-起動していないと接続情報を取得できずに失敗するので、先に `pnpm supabase start` を実行してください。
+起動していないと接続情報を取得できずに失敗するので、先に `pnpm db:start` を実行してください。
 
 ```bash
-pnpm test                          # 全テストを一度だけ実行
-pnpm test:watch                    # 全テストを監視
-VITEST_INTEGRATION=false pnpm test # Supabase不要のフロントエンドテストのみ実行
+pnpm test        # 全パッケージのテストを一度だけ実行
+pnpm test:watch  # バックエンドのテストを監視
+pnpm --filter @michinavi/frontend test  # Supabase 不要のフロントエンドテストだけ実行
 ```
 
 接続情報と鍵は `supabase status` から都度読み取るため、`.env.local` の内容（本番やプレビューの Supabase）には影響されません。
+
+同じ DB を共有するので、テストはファイル間・パッケージ間ともに直列で実行されます。

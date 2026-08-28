@@ -10,7 +10,7 @@
 | DBMS | PostgreSQL 17（Supabase） |
 | 認証 | Supabase Auth（`auth.users`） |
 | 拡張 | `pgcrypto`（UUID 生成、HMAC）、`postgis`（避難所と地区の空間データ） |
-| マイグレーション | `supabase/migrations/` に SQL を置き、`supabase db push` で適用 |
+| マイグレーション | `packages/db/supabase/migrations/` に SQL を置き、`supabase db push` で適用 |
 
 ## DB クライアントの使い分け
 
