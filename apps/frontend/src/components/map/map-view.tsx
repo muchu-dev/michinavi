@@ -20,7 +20,7 @@ const MapCanvas = dynamic(
 export function MapView() {
   return (
     <section
-      aria-label="東川町周辺の地図"
+      aria-label="千代田区周辺の地図"
       className="relative min-h-[30rem] flex-1 overflow-hidden bg-[#e8eeec]"
     >
       <MapCanvas />

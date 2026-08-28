@@ -18,7 +18,7 @@ describe("MapView", () => {
     render(<MapView />);
 
     expect(
-      screen.getByRole("region", { name: "東川町周辺の地図" }),
+      screen.getByRole("region", { name: "千代田区周辺の地図" }),
     ).toBeTruthy();
     expect(screen.getByText("地図を読み込んでいます")).toBeTruthy();
     expect(screen.getByText("通行可")).toBeTruthy();
