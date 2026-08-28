@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:bypass-auth": "APP_ENV=local DEV_AUTH_BYPASS=true next dev",
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsgo --noEmit",
@@ -13,6 +14,8 @@
   },
   "dependencies": {
     "@michinavi/backend": "workspace:*",
+    "@michinavi/db": "workspace:*",
+    "@supabase/ssr": "catalog:",
     "@t3-oss/env-nextjs": "catalog:",
     "@tanstack/react-query": "^5.101.4",
     "@trpc/client": "^11.18.0",

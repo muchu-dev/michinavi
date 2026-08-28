@@ -99,6 +99,12 @@ importers:
       '@michinavi/backend':
         specifier: workspace:*
         version: link:../backend
+      '@michinavi/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@supabase/ssr':
+        specifier: 'catalog:'
+        version: 0.12.4(@supabase/supabase-js@2.112.3)
       '@t3-oss/env-nextjs':
         specifier: 'catalog:'
         version: 0.13.11(typescript@5.9.3)(zod@4.4.3)
