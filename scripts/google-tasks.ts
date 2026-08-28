@@ -5,6 +5,93 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 
+type SheetKey =
+  | "intro"
+  | "features"
+  | "backend"
+  | "frontend"
+  | "design"
+  | "common"
+  | "glossary"
+  | "summary";
+
+interface SheetDefinition {
+  key: SheetKey;
+  title: string;
+  gid: string;
+  label?: string;
+}
+
+interface Spreadsheet {
+  id: string;
+  title: string;
+  url: string;
+}
+
+interface Sheet extends SheetDefinition {
+  hash: string;
+  rows: string[][];
+}
+
+interface Task {
+  rowNumber: number;
+  id: string | null;
+  week: string | null;
+  featureId: string | null;
+  name: string | null;
+  description: string | null;
+  doneDefinition: string | null;
+  dependencies: string | null;
+  estimatedHours: string | null;
+  assignee: string | null;
+  status: string | null;
+  memo: string | null;
+  extra: string[];
+}
+
+interface Snapshot {
+  schemaVersion: 1;
+  spreadsheetId: string;
+  spreadsheetTitle: string;
+  spreadsheetUrl: string;
+  syncedAt: string;
+  sheets: Sheet[];
+}
+
+interface CategorySummary {
+  key: SheetKey;
+  label: string;
+  count: number;
+  statuses: StatusCounts;
+  hours: number;
+  missingIds: number[];
+}
+
+interface TaskGroup {
+  sheet: Sheet;
+  tasks: Task[];
+}
+
+interface SummaryTotals {
+  count: number;
+  hours: number;
+  statuses: StatusCounts;
+}
+
+type Status = (typeof STATUS_ORDER)[number];
+type StatusCounts = Record<Status, number>;
+type ComparableTaskField =
+  | "week"
+  | "featureId"
+  | "name"
+  | "description"
+  | "doneDefinition"
+  | "dependencies"
+  | "estimatedHours"
+  | "assignee"
+  | "status"
+  | "memo";
+
 const ROOT = resolve(import.meta.dirname, "..");
 const SNAPSHOT_PATH = resolve(ROOT, "docs/tasks/google-sheet-snapshot.json");
 const TASKS_PATH = resolve(ROOT, "docs/tasks/all-tasks.md");
@@ -14,7 +101,7 @@ const SPREADSHEET = {
   id: "1FW508w8fH26xQPqVVBr8nZcPqa91Myz6f0Jq2WECwb0",
   title: "michinavi_tasks",
   url: "https://docs.google.com/spreadsheets/d/1FW508w8fH26xQPqVVBr8nZcPqa91Myz6f0Jq2WECwb0/edit",
-};
+} satisfies Spreadsheet;
 
 const SHEETS = [
   { key: "intro", title: "00_はじめに", gid: "481289993" },
@@ -30,21 +117,26 @@ const SHEETS = [
   { key: "common", title: "05_タスク_共通", gid: "1506492464", label: "共通" },
   { key: "glossary", title: "06_用語集", gid: "959367190" },
   { key: "summary", title: "07_進捗サマリ", gid: "942977878" },
-];
+] satisfies readonly SheetDefinition[];
 
-const TASK_SHEET_KEYS = new Set(["backend", "frontend", "design", "common"]);
-const STATUS_ORDER = ["未着手", "進行中", "完了", "見送り"];
+const TASK_SHEET_KEYS = new Set<SheetKey>([
+  "backend",
+  "frontend",
+  "design",
+  "common",
+]);
+const STATUS_ORDER = ["未着手", "進行中", "完了", "見送り"] as const;
 
-function normalizeCsv(csv) {
+function normalizeCsv(csv: string): string {
   return csv
     .replaceAll("\r\n", "\n")
     .replaceAll("\r", "\n")
     .replace(/\n+$/, "");
 }
 
-function parseCsv(csv) {
-  const rows = [];
-  let row = [];
+function parseCsv(csv: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let cell = "";
   let quoted = false;
 
@@ -92,16 +184,16 @@ function parseCsv(csv) {
   return rows;
 }
 
-function digest(value) {
+function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function exportUrl(gid) {
+function exportUrl(gid: string): string {
   return `https://docs.google.com/spreadsheets/d/${SPREADSHEET.id}/export?format=csv&gid=${gid}`;
 }
 
-async function fetchSheet(sheet) {
-  let lastError;
+async function fetchSheet(sheet: SheetDefinition): Promise<Sheet> {
+  let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       const response = await fetch(exportUrl(sheet.gid), {
@@ -131,7 +223,7 @@ async function fetchSheet(sheet) {
     } catch (error) {
       lastError = error;
       if (attempt < 3)
-        await new Promise((resolveDelay) =>
+        await new Promise<void>((resolveDelay) =>
           setTimeout(resolveDelay, attempt * 500),
         );
     }
@@ -142,14 +234,14 @@ async function fetchSheet(sheet) {
   );
 }
 
-async function fetchWorkbook() {
-  const sheets = [];
+async function fetchWorkbook(): Promise<Sheet[]> {
+  const sheets: Sheet[] = [];
   // GoogleのCSVエクスポートは同時リクエストで一時的な404を返すことがあるため順次取得する。
   for (const sheet of SHEETS) sheets.push(await fetchSheet(sheet));
   return sheets;
 }
 
-function taskRows(sheet) {
+function taskRows(sheet: Sheet): Task[] {
   const headerIndex = sheet.rows.findIndex(
     (row) => row[0] === "ID" && row[3] === "タスク名",
   );
@@ -182,26 +274,34 @@ function taskRows(sheet) {
     });
 }
 
-function workbookTasks(sheets) {
+function workbookTasks(sheets: readonly Sheet[]): TaskGroup[] {
   return sheets
     .filter((sheet) => TASK_SHEET_KEYS.has(sheet.key))
     .map((sheet) => ({ sheet, tasks: taskRows(sheet) }));
 }
 
-function summarize(sheets) {
+function createStatusCounts(): StatusCounts {
+  return Object.fromEntries(
+    STATUS_ORDER.map((status) => [status, 0]),
+  ) as StatusCounts;
+}
+
+function isStatus(value: string | null): value is Status {
+  return value !== null && STATUS_ORDER.includes(value as Status);
+}
+
+function summarize(sheets: readonly Sheet[]): CategorySummary[] {
   return workbookTasks(sheets).map(({ sheet, tasks }) => {
-    const statuses = Object.fromEntries(
-      STATUS_ORDER.map((status) => [status, 0]),
-    );
+    const statuses = createStatusCounts();
     let hours = 0;
     for (const task of tasks) {
-      if (task.status in statuses) statuses[task.status] += 1;
+      if (isStatus(task.status)) statuses[task.status] += 1;
       const taskHours = Number.parseFloat(task.estimatedHours ?? "");
       if (Number.isFinite(taskHours)) hours += taskHours;
     }
     return {
       key: sheet.key,
-      label: sheet.label,
+      label: sheet.label ?? sheet.title,
       count: tasks.length,
       statuses,
       hours,
@@ -212,19 +312,19 @@ function summarize(sheets) {
   });
 }
 
-function escapeTable(value) {
+function escapeTable(value: unknown): string {
   return String(value ?? "-")
     .replaceAll("|", "\\|")
     .replaceAll("\n", "<br>");
 }
 
-function taskHeading(task) {
+function taskHeading(task: Task): string {
   return task.id
     ? `${task.id} ${task.name}`
     : `ID未設定（行${task.rowNumber}） ${task.name}`;
 }
 
-function renderTasks(snapshot) {
+function renderTasks(snapshot: Snapshot): string {
   const lines = [
     "# みちナビ 全タスク",
     "",
@@ -259,9 +359,9 @@ function renderTasks(snapshot) {
   return `${lines.join("\n")}\n`;
 }
 
-function renderReadme(snapshot) {
+function renderReadme(snapshot: Snapshot): string {
   const summary = summarize(snapshot.sheets);
-  const totals = summary.reduce(
+  const totals = summary.reduce<SummaryTotals>(
     (result, category) => {
       result.count += category.count;
       result.hours += category.hours;
@@ -272,7 +372,7 @@ function renderReadme(snapshot) {
     {
       count: 0,
       hours: 0,
-      statuses: Object.fromEntries(STATUS_ORDER.map((status) => [status, 0])),
+      statuses: createStatusCounts(),
     },
   );
 
@@ -329,18 +429,21 @@ function renderReadme(snapshot) {
   return lines.join("\n");
 }
 
-function taskKey(task) {
+function taskKey(task: Task): string {
   return task.id || `row:${task.rowNumber}:${task.name}`;
 }
 
-function describeTaskChanges(previousSheet, currentSheet) {
-  const previous = new Map(
-    taskRows(previousSheet).map((task) => [taskKey(task), task]),
+function describeTaskChanges(
+  previousSheet: Sheet,
+  currentSheet: Sheet,
+): string[] {
+  const previous = new Map<string, Task>(
+    taskRows(previousSheet).map((task) => [taskKey(task), task] as const),
   );
-  const current = new Map(
-    taskRows(currentSheet).map((task) => [taskKey(task), task]),
+  const current = new Map<string, Task>(
+    taskRows(currentSheet).map((task) => [taskKey(task), task] as const),
   );
-  const changes = [];
+  const changes: string[] = [];
 
   for (const [key, task] of current) {
     const oldTask = previous.get(key);
@@ -349,7 +452,9 @@ function describeTaskChanges(previousSheet, currentSheet) {
       continue;
     }
 
-    const changedFields = [
+    const comparableFields: ReadonlyArray<
+      readonly [label: string, field: ComparableTaskField]
+    > = [
       ["週", "week"],
       ["機能ID", "featureId"],
       ["タスク名", "name"],
@@ -360,7 +465,10 @@ function describeTaskChanges(previousSheet, currentSheet) {
       ["担当者", "assignee"],
       ["ステータス", "status"],
       ["メモ", "memo"],
-    ].filter(([, field]) => (oldTask[field] ?? "") !== (task[field] ?? ""));
+    ];
+    const changedFields = comparableFields.filter(
+      ([, field]) => (oldTask[field] ?? "") !== (task[field] ?? ""),
+    );
 
     if (changedFields.length > 0) {
       changes.push(`  ~ ${taskHeading(task)}`);
@@ -379,11 +487,15 @@ function describeTaskChanges(previousSheet, currentSheet) {
   return changes;
 }
 
-async function readSnapshot() {
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
+
+async function readSnapshot(): Promise<Snapshot> {
   try {
-    return JSON.parse(await readFile(SNAPSHOT_PATH, "utf8"));
+    return JSON.parse(await readFile(SNAPSHOT_PATH, "utf8")) as Snapshot;
   } catch (error) {
-    if (error?.code === "ENOENT") {
+    if (isNodeError(error) && error.code === "ENOENT") {
       throw new Error(
         "スナップショットがありません。先に `pnpm tasks:sync` を実行してください。",
       );
@@ -392,16 +504,16 @@ async function readSnapshot() {
   }
 }
 
-async function atomicWrite(path, content) {
+async function atomicWrite(path: string, content: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const temporaryPath = `${path}.tmp`;
   await writeFile(temporaryPath, content, "utf8");
   await rename(temporaryPath, path);
 }
 
-async function sync() {
+async function sync(): Promise<void> {
   const sheets = await fetchWorkbook();
-  const snapshot = {
+  const snapshot: Snapshot = {
     schemaVersion: 1,
     spreadsheetId: SPREADSHEET.id,
     spreadsheetTitle: SPREADSHEET.title,
@@ -422,11 +534,11 @@ async function sync() {
   console.log(`出力: ${TASKS_PATH}`);
 }
 
-async function check() {
+async function check(): Promise<void> {
   const previous = await readSnapshot();
   const currentSheets = await fetchWorkbook();
-  const previousByKey = new Map(
-    previous.sheets.map((sheet) => [sheet.key, sheet]),
+  const previousByKey = new Map<SheetKey, Sheet>(
+    previous.sheets.map((sheet) => [sheet.key, sheet] as const),
   );
   const changed = currentSheets.filter(
     (sheet) => previousByKey.get(sheet.key)?.hash !== sheet.hash,
@@ -450,7 +562,7 @@ async function check() {
   process.exitCode = 1;
 }
 
-async function status() {
+async function status(): Promise<void> {
   const snapshot = await readSnapshot();
   console.log(`保存済みスナップショット: ${snapshot.syncedAt}`);
   for (const category of summarize(snapshot.sheets)) {
@@ -460,17 +572,17 @@ async function status() {
   }
 }
 
-async function main() {
+async function main(): Promise<void> {
   const command = process.argv[2] ?? "status";
   if (command === "sync") return sync();
   if (command === "check") return check();
   if (command === "status") return status();
 
-  console.error("使い方: node scripts/google-tasks.mjs <sync|check|status>");
+  console.error("使い方: node scripts/google-tasks.ts <sync|check|status>");
   process.exitCode = 2;
 }
 
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });
