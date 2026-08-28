@@ -116,9 +116,11 @@ function MapMarkerIcon({
   return (
     <svg
       role="img"
-      aria-label={mapMarkerSamples.find(
-        (marker) => marker.status === status && marker.symbol === symbol,
-      )?.label}
+      aria-label={
+        mapMarkerSamples.find(
+          (marker) => marker.status === status && marker.symbol === symbol,
+        )?.label
+      }
       className={`h-[4.75rem] w-16 drop-shadow-sm ${statusColor}`}
       viewBox="0 0 72 88"
       fill="none"
