@@ -25,6 +25,16 @@ pnpm install   # 依存パッケージを導入
 pnpm dev       # http://localhost:3000
 ```
 
+### 認証を迂回して画面を確認する
+
+Supabaseを起動せず、認証後の画面だけをローカルで確認する場合は次を実行します。
+
+```bash
+pnpm dev:bypass-auth
+```
+
+認証の迂回は、Next.jsの開発モードかつ`APP_ENV=local`の場合だけ有効です。preview・productionでは`DEV_AUTH_BYPASS=true`が設定されていても有効になりません。実際のログイン動作や権限は、通常の`pnpm dev`とローカルSupabaseで確認してください。
+
 ## 開発タスク
 
 Google Sheets のタスク正本をローカルで確認・差分検出できます。
