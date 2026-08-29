@@ -340,6 +340,8 @@ function ReportGroupDetails({
               {new Intl.DateTimeFormat("ja-JP", {
                 dateStyle: "short",
                 timeStyle: "short",
+                // CIや端末のタイムゾーンに左右されず、日本時間で投稿日時を表示する。
+                timeZone: "Asia/Tokyo",
               }).format(new Date(report.createdAt))}
             </time>
             {!compact && onFeedback ? (
