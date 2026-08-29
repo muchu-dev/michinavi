@@ -2,6 +2,13 @@
 
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { MapView } from "@/components/map/map-view";
+import { toQuarterMeshCode } from "@/lib/location/mesh-code";
+import { api } from "@/lib/trpc/client";
+
+const REPORT_REGION = {
+  name: "千代田区周辺",
+  center: [35.6938, 139.753] as [number, number],
+};
 
 // 道路の通行状態を表す画面内の選択値
 type RoadCondition = "passable" | "caution" | "blocked";
@@ -13,9 +20,6 @@ type HazardType =
   | "congestion"
   | "restriction"
   | "other";
-// 冠水時に選択する水深の区分
-type WaterDepth = "under-ankle" | "ankle-to-knee" | "over-knee";
-
 // 状態選択欄に表示する原因の一覧
 const hazards: ReadonlyArray<{ type: HazardType; label: string }> = [
   { type: "flood", label: "冠水" },
@@ -26,30 +30,30 @@ const hazards: ReadonlyArray<{ type: HazardType; label: string }> = [
   { type: "other", label: "その他" },
 ];
 
-// 水深選択欄に表示する3段階の一覧
-const waterDepths: ReadonlyArray<{
-  value: WaterDepth;
-  label: string;
-  detail: string;
-}> = [
-  { value: "under-ankle", label: "くるぶし未満", detail: "〜10cm" },
-  { value: "ankle-to-knee", label: "くるぶし〜ひざ", detail: "10〜50cm" },
-  { value: "over-knee", label: "ひざ以上", detail: "50cm〜" },
-];
-
 // ページ：投稿地図と道路状況入力を切り替えて表示できる
 export default function PostsPage() {
   const [view, setView] = useState<"map" | "report">("map");
   const [condition, setCondition] = useState<RoadCondition | null>(null);
   const [expanded, setExpanded] = useState<"caution" | "blocked" | null>(null);
   const [hazard, setHazard] = useState<HazardType | null>(null);
-  const [waterDepth, setWaterDepth] = useState<WaterDepth | null>(null);
   const [showBody, setShowBody] = useState(false);
   const [body, setBody] = useState("");
   const [photoName, setPhotoName] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // DBから道路投稿を取得し、投稿成功後に同じキャッシュを再取得する。
+  const reportList = api.fieldReport.list.useQuery({ limit: 100 });
+  const apiUtils = api.useUtils();
+  const createReport = api.fieldReport.create.useMutation();
+  const visibleReports = (reportList.data ?? []).flatMap((report) =>
+    report.roadCondition
+      ? [{ ...report, roadCondition: report.roadCondition }]
+      : [],
+  );
 
   useEffect(() => {
+    // 投稿フォームではアプリ共通ヘッダーを隠し、入力領域を確保する。
     const appHeader =
       document.getElementById("main-content")?.previousElementSibling;
     if (!(appHeader instanceof HTMLElement)) return;
@@ -62,6 +66,7 @@ export default function PostsPage() {
 
   const chooseCondition = (next: RoadCondition) => {
     setSubmitted(false);
+    setSubmitError(null);
     if (next === "passable") {
       setCondition("passable");
       setExpanded(null);
@@ -79,29 +84,50 @@ export default function PostsPage() {
     setCondition(expanded);
     setHazard(type);
     setSubmitted(false);
+    setSubmitError(null);
   };
 
   // 現在の選択内容で投稿可能かを判定する値
   const canSubmit =
     condition === "passable" ||
-    (condition === "caution" && hazard !== null && waterDepth !== null) ||
-    (condition === "blocked" && hazard !== null && waterDepth !== null);
+    (condition === "caution" && hazard !== null) ||
+    (condition === "blocked" && hazard !== null);
 
   // 投稿ボタン押下時に入力を検証し、完了後に地図へ戻す関数
-  const submitReport = (event: FormEvent<HTMLFormElement>) => {
+  const submitReport = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canSubmit) return;
-    // 現在はDB保存も写真アップロードも行わず、画面状態だけを初期化する。
-    // TODO: field_reports 作成APIとStorage連携の完成後、選択値と写真をここから送信する。
-    setSubmitted(true);
-    setCondition(null);
-    setExpanded(null);
-    setHazard(null);
-    setWaterDepth(null);
-    setShowBody(false);
-    setBody("");
-    setPhotoName("");
-    setView("map");
+    if (!canSubmit || !condition || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setSubmitted(false);
+    setSubmitError(null);
+
+    try {
+      const position = await getCurrentPosition();
+      // 正確なGPS座標は送らず、約250mのメッシュコードだけを投稿APIへ渡す。
+      const meshCode = toQuarterMeshCode(
+        position.coords.latitude,
+        position.coords.longitude,
+      );
+      await createReport.mutateAsync({
+        meshCode,
+        roadCondition: condition === "blocked" ? "impassable" : condition,
+      });
+      await apiUtils.fieldReport.list.invalidate();
+
+      setSubmitted(true);
+      setCondition(null);
+      setExpanded(null);
+      setHazard(null);
+      setShowBody(false);
+      setBody("");
+      setPhotoName("");
+      setView("map");
+    } catch (error) {
+      setSubmitError(getSubmitErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // 投稿ページを開いた直後に表示する地図画面。
@@ -119,7 +145,7 @@ export default function PostsPage() {
                 id="posts-map-title"
                 className="mt-0.5 text-xl font-black text-ink"
               >
-                東川町 周辺
+                {REPORT_REGION.name}
               </h1>
             </div>
             <p className="pt-1 text-right text-[0.6875rem] font-bold text-muted">
@@ -134,7 +160,11 @@ export default function PostsPage() {
         </div>
 
         {/* 現在地周辺と既存の道路情報を表示する地図。 */}
-        <MapView />
+        <MapView
+          center={REPORT_REGION.center}
+          regionName={REPORT_REGION.name}
+          reports={visibleReports}
+        />
 
         {/* 道路状況の入力画面を開くボタン。 */}
         <div className="absolute inset-x-3 bottom-3 z-[700]">
@@ -206,44 +236,6 @@ export default function PostsPage() {
             />
           </ConditionCard>
         </div>
-
-        {/* 通れる場合は任意、それ以外では必須となる水深選択欄。 */}
-        <fieldset className="mt-3 rounded-xl border border-[#909EB8] bg-white px-2.5 pb-3 pt-2.5">
-          <legend className="px-1 text-xs font-black text-ink">
-            水深
-            <span className="ml-1 font-medium text-muted">
-              {condition === "passable" ? "任意" : "選択してください"}
-            </span>
-          </legend>
-          <div className="mt-1 grid grid-cols-3 gap-1.5">
-            {waterDepths.map((depth) => {
-              const selected = waterDepth === depth.value;
-              return (
-                <button
-                  key={depth.value}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => {
-                    setWaterDepth((current) =>
-                      current === depth.value ? null : depth.value,
-                    );
-                    setSubmitted(false);
-                  }}
-                  className={`min-h-14 rounded-lg border px-1 py-1.5 text-center transition-colors ${selected ? "border-[#597EBF] bg-[#597EBF] text-white" : "border-[#909EB8]/60 bg-white text-ink"}`}
-                >
-                  <span className="block text-[0.625rem] font-black leading-tight">
-                    {depth.label}
-                  </span>
-                  <span
-                    className={`mt-1 block text-[0.5625rem] font-bold ${selected ? "text-white/85" : "text-muted"}`}
-                  >
-                    {depth.detail}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
       </div>
 
       {/* 任意項目と投稿ボタンをまとめた画面下部の操作欄。 */}
@@ -278,6 +270,7 @@ export default function PostsPage() {
             accept="image/*"
             className="sr-only"
             onChange={(event) =>
+              // Storage連携前のため、現時点では選択したファイル名だけを保持する。
               setPhotoName(event.target.files?.[0]?.name ?? "")
             }
           />
@@ -286,18 +279,69 @@ export default function PostsPage() {
 
         <button
           type="submit"
-          disabled={!canSubmit}
+          disabled={!canSubmit || isSubmitting}
           className={`min-h-12 w-full rounded-lg border text-xs font-black transition-colors ${
-            canSubmit
+            canSubmit && !isSubmitting
               ? "border-[#597EBF] bg-[#597EBF] text-white"
               : "border-[#597EBF] bg-white text-[#597EBF]"
           }`}
         >
-          {submitted ? "投稿しました" : "投稿する"}
+          {isSubmitting ? "送信中..." : submitted ? "投稿しました" : "投稿する"}
         </button>
+        {submitError ? (
+          <p
+            aria-live="polite"
+            className="text-center text-xs font-bold text-[#C7362A]"
+            role="alert"
+          >
+            {submitError}
+          </p>
+        ) : null}
       </div>
     </form>
   );
+}
+
+function getCurrentPosition() {
+  // 投稿地点を確定する時だけ、ブラウザから最新の現在地を1回取得する。
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    if (!("geolocation" in navigator)) {
+      reject(new Error("位置情報を取得できない端末です"));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      resolve,
+      (error) => {
+        const message =
+          error.code === error.PERMISSION_DENIED
+            ? "投稿には現在地が必要です。位置情報の利用を許可してください。"
+            : "現在地を取得できませんでした。時間をおいてもう一度お試しください。";
+        reject(new Error(message));
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 30_000,
+        timeout: 10_000,
+      },
+    );
+  });
+}
+
+function getSubmitErrorMessage(error: unknown) {
+  if (
+    error !== null &&
+    typeof error === "object" &&
+    "data" in error &&
+    error.data !== null &&
+    typeof error.data === "object" &&
+    "code" in error.data &&
+    error.data.code === "UNAUTHORIZED"
+  ) {
+    return "DBに保存するにはログインが必要です。認証バイパスを無効にしてログインしてください。";
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return "投稿を保存できませんでした。時間をおいてもう一度お試しください。";
 }
 
 // 通行状態ごとの大きな選択カードを表示する関数。
