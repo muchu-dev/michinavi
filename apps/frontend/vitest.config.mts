@@ -19,6 +19,7 @@ export default defineConfig({
       reporter: ["text", "json-summary"],
       include: [
         "src/app/login/actions.ts",
+        "src/app/onboarding/page.tsx",
         "src/components/auth/**/*.tsx",
         "src/components/onboarding/**/*.tsx",
         "src/components/app-shell/**/*.tsx",
@@ -26,6 +27,7 @@ export default defineConfig({
         "src/config/navigation.ts",
         "src/lib/supabase/proxy.ts",
         "src/lib/auth/development-bypass.ts",
+        "src/lib/onboarding/**/*.ts",
       ],
       thresholds: {
         branches: 80,

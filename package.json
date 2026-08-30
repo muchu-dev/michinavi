@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @michinavi/frontend dev",
-    "dev:bypass-auth": "pnpm --filter @michinavi/frontend dev:bypass-auth",
     "build": "pnpm --filter @michinavi/frontend build",
     "start": "pnpm --filter @michinavi/frontend start",
     "lint": "biome check && pnpm typecheck",

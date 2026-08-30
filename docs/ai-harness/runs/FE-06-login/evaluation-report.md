@@ -44,7 +44,7 @@
 - [x] 条件4: 空・不正メールをSupabase呼び出し前に拒否するテストが成功。
 - [x] 条件5: 認証拒否・例外の双方で内部詳細を隠すテストが成功。
 - [x] 条件6: pending時にボタンが無効化され「ログイン中…」となるテストが成功。
-- [x] 条件7: `signInWithPassword`成功後に`/`へredirectするテストが成功。実Supabase cookie統合は未確認。
+- [x] 条件7: `signInWithPassword`成功後に`/onboarding`へredirectするテストが成功。初期世帯を設定済みの利用者は`/onboarding`のServer Componentから`/`へredirectする。実Supabase cookie統合は未確認。
 - [x] 条件8: Proxy単体テストと本番HTTPで匿名リダイレクト、公開画面、cookie更新を確認。
 - [x] 条件9: frontend tests/coverage/lint/typecheck/webpack buildは成功。Supabase integrationとTurbopack既定buildは環境制約を注記。
 

@@ -43,13 +43,13 @@ michinavi/
 
 ### 認証を迂回して画面を確認する
 
-Supabaseを起動せず、認証後の画面だけをローカルで確認する場合は次を実行します。
+Supabaseを起動せず、認証後の画面だけをローカルで確認する場合は、`apps/frontend/.env.local`に次を設定して`pnpm dev`を実行します。
 
-```bash
-pnpm dev:bypass-auth
+```dotenv
+DEV_AUTH_BYPASS="true"
 ```
 
-認証の迂回は、Next.jsの開発モードかつ`APP_ENV=local`の場合だけ有効です。preview・productionでは`DEV_AUTH_BYPASS=true`が設定されていても有効になりません。実際のログイン動作や権限は、通常の`pnpm dev`とローカルSupabaseで確認してください。
+認証の迂回は、Next.jsの開発モードかつ`APP_ENV=local`の場合だけ有効です。preview・productionでは`DEV_AUTH_BYPASS=true`が設定されていても有効になりません。実際のログイン動作や権限は、`DEV_AUTH_BYPASS="false"`に戻した`pnpm dev`とローカルSupabaseで確認してください。
 
 ## 開発タスク
 

@@ -5,7 +5,7 @@
 - BE-09: accept, validate, save, and return household member counts/age groups, care-needs flags, pets, and car information under authenticated RLS.
 - BE-10: convert current coordinates, postal code, or prefecture/city/address input into an `area_id` and 250m mesh without persisting the exact address string.
 - Add the designed `pets`, `care_needs`, and `household_member_care_needs` schema/RLS/API before connecting those fields.
-- Define an onboarding-complete signal so authenticated users can be routed to onboarding only when incomplete.
+- Connect wizard completion to `user.setup` / `household.update`. `household.get` returning data is now used to recognize users whose initial household has already been created, but the current in-memory wizard still does not create that data.
 
 ## Required contract properties
 

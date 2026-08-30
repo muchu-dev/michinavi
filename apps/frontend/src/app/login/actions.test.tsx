@@ -78,7 +78,7 @@ describe("login", () => {
     expect(redirect).not.toHaveBeenCalled();
   });
 
-  it("signs in and redirects to the map top page", async () => {
+  it("signs in and redirects to onboarding", async () => {
     signInWithPassword.mockResolvedValue({ error: null });
     const formData = new FormData();
     formData.set("email", "resident@example.com");

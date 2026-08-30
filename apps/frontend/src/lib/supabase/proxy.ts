@@ -27,6 +27,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request });
+  const authResponseHeaders = new Headers();
 
   const supabase = createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -47,6 +48,7 @@ export async function updateSession(request: NextRequest) {
 
           for (const [name, value] of Object.entries(headers)) {
             response.headers.set(name, value);
+            authResponseHeaders.set(name, value);
           }
         },
       },
@@ -60,7 +62,15 @@ export async function updateSession(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.search = "";
-    return NextResponse.redirect(loginUrl);
+
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    for (const cookie of response.cookies.getAll()) {
+      redirectResponse.cookies.set(cookie);
+    }
+    for (const [name, value] of authResponseHeaders) {
+      redirectResponse.headers.set(name, value);
+    }
+    return redirectResponse;
   }
 
   return response;
