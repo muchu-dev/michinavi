@@ -13,8 +13,8 @@ describe("FamilySettingsPage", () => {
     ).toBeDefined();
     expect(screen.getByText("家族構成の登録・更新")).toBeDefined();
     expect(screen.getByText("個人情報の編集")).toBeDefined();
-    expect(screen.getByRole("link", { name: "連携" }).getAttribute("href")).toBe(
-      "/family/connect",
-    );
+    expect(
+      screen.getByRole("link", { name: "連携" }).getAttribute("href"),
+    ).toBe("/family/connect");
   });
 });
