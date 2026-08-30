@@ -7,7 +7,7 @@ type CookieAdapter = {
     cookies: {
       name: string;
       value: string;
-      options: { path?: string };
+      options: { maxAge?: number; path?: string };
     }[],
     headers: Record<string, string>,
   ) => void;
@@ -124,7 +124,11 @@ describe("updateSession", () => {
             options: { path: "/" },
           },
         ],
-        { "cache-control": "private, no-store" },
+        {
+          "cache-control": "private, no-cache, no-store",
+          expires: "0",
+          pragma: "no-cache",
+        },
       );
       return { data: { claims: { sub: "user-id" } } };
     });
@@ -134,6 +138,42 @@ describe("updateSession", () => {
     expect(response.cookies.get("sb-auth-token")?.value).toBe(
       "refreshed-token",
     );
-    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-cache, no-store",
+    );
+    expect(response.headers.get("expires")).toBe("0");
+    expect(response.headers.get("pragma")).toBe("no-cache");
+  });
+
+  it("preserves cleared auth cookies and cache headers on the login redirect", async () => {
+    testState.getClaims.mockImplementation(async () => {
+      testState.cookieAdapter?.setAll(
+        [
+          {
+            name: "sb-auth-token",
+            value: "",
+            options: { maxAge: 0, path: "/" },
+          },
+        ],
+        {
+          "cache-control": "private, no-cache, no-store",
+          expires: "0",
+          pragma: "no-cache",
+        },
+      );
+      return { data: { claims: null } };
+    });
+
+    const response = await updateSession(new NextRequest("http://localhost/"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost/login");
+    expect(response.cookies.get("sb-auth-token")?.value).toBe("");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-cache, no-store",
+    );
+    expect(response.headers.get("expires")).toBe("0");
+    expect(response.headers.get("pragma")).toBe("no-cache");
   });
 });
