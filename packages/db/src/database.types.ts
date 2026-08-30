@@ -83,6 +83,53 @@ export type Database = {
         };
         Relationships: [];
       };
+      field_reports: {
+        Row: {
+          created_at: string;
+          deleted_at: string | null;
+          hazard_type: Database["public"]["Enums"]["hazard_type"] | null;
+          id: string;
+          mesh_code: string;
+          mesh_level: Database["public"]["Enums"]["mesh_level"];
+          report_type: Database["public"]["Enums"]["field_report_type"];
+          road_condition: Database["public"]["Enums"]["road_condition"] | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          deleted_at?: string | null;
+          hazard_type?: Database["public"]["Enums"]["hazard_type"] | null;
+          id?: string;
+          mesh_code: string;
+          mesh_level?: Database["public"]["Enums"]["mesh_level"];
+          report_type?: Database["public"]["Enums"]["field_report_type"];
+          road_condition?: Database["public"]["Enums"]["road_condition"] | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string | null;
+          hazard_type?: Database["public"]["Enums"]["hazard_type"] | null;
+          id?: string;
+          mesh_code?: string;
+          mesh_level?: Database["public"]["Enums"]["mesh_level"];
+          report_type?: Database["public"]["Enums"]["field_report_type"];
+          road_condition?: Database["public"]["Enums"]["road_condition"] | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "field_reports_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       household_member_care_needs: {
         Row: {
           care_need_id: string;
@@ -379,6 +426,15 @@ export type Database = {
     };
     Enums: {
       age_group: "infant" | "child" | "adult" | "senior";
+      field_report_type: "road" | "hazard" | "shop" | "other";
+      hazard_type:
+        | "flood"
+        | "inland_flood"
+        | "landslide"
+        | "storm_surge"
+        | "tsunami"
+        | "earthquake"
+        | "fire";
       mesh_level: "mesh_1km" | "mesh_500m" | "mesh_250m" | "mesh_125m";
       pet_size: "small" | "medium" | "large";
       pet_species:
@@ -388,6 +444,7 @@ export type Database = {
         | "bird"
         | "reptile"
         | "other";
+      road_condition: "passable" | "caution" | "impassable";
       status_share_scope: "household" | "family" | "none";
       verification_level: "anonymous" | "email" | "phone";
     };
@@ -521,9 +578,20 @@ export const Constants = {
   public: {
     Enums: {
       age_group: ["infant", "child", "adult", "senior"],
+      field_report_type: ["road", "hazard", "shop", "other"],
+      hazard_type: [
+        "flood",
+        "inland_flood",
+        "landslide",
+        "storm_surge",
+        "tsunami",
+        "earthquake",
+        "fire",
+      ],
       mesh_level: ["mesh_1km", "mesh_500m", "mesh_250m", "mesh_125m"],
       pet_size: ["small", "medium", "large"],
       pet_species: ["dog", "cat", "small_animal", "bird", "reptile", "other"],
+      road_condition: ["passable", "caution", "impassable"],
       status_share_scope: ["household", "family", "none"],
       verification_level: ["anonymous", "email", "phone"],
     },
