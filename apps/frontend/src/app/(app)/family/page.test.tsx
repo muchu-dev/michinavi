@@ -27,7 +27,9 @@ describe("FamilyPage", () => {
   it("shows the family settings entry without unfinished placeholder copy", () => {
     render(<FamilyPage />);
 
-    expect(screen.getByText("設定")).toBeDefined();
+    expect(screen.getByRole("link", { name: "設定" }).getAttribute("href")).toBe(
+      "/family/settings",
+    );
     expect(screen.queryByText(/次の実装範囲/)).toBeNull();
     expect(screen.queryByText(/対象タスク/)).toBeNull();
   });

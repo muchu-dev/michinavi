@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const familyMembers = [
   {
     name: "母",
@@ -34,7 +36,10 @@ export default function FamilyPage() {
         ))}
       </ul>
 
-      <div className="mt-14 flex min-h-12 items-center justify-between gap-5">
+      <Link
+        href="/family/settings"
+        className="mt-14 flex min-h-12 items-center justify-between gap-5 rounded-lg text-muted outline-none transition-colors hover:text-brand focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-brand"
+      >
         <span className="text-[1.5625rem] leading-tight font-normal text-muted">
           設定
         </span>
@@ -42,7 +47,7 @@ export default function FamilyPage() {
           aria-hidden="true"
           className="mr-1 size-4 rotate-45 border-t-[0.1875rem] border-r-[0.1875rem] border-muted"
         />
-      </div>
+      </Link>
     </section>
   );
 }
