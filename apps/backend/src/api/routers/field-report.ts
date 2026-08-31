@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { toTRPCError } from "../errors";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../init";
+import { refreshRoadStatusEstimate } from "./road-status";
 
 /**
  * 投稿位置は 10 桁の 4 分の 1 地域メッシュ（約 250m）で受け取る（S1）。
@@ -50,6 +51,13 @@ export const fieldReportRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
           message: "投稿の保存に失敗しました",
         });
+      }
+
+      try {
+        // AI推定の失敗が投稿の成否に影響しないよう、ここで吸収する（BE-16）
+        await refreshRoadStatusEstimate(ctx.supabase, input.meshCode);
+      } catch {
+        // road_status_estimates の更新に失敗しても投稿自体は成功させる
       }
 
       return {
