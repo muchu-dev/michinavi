@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { toTRPCError } from "../errors";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../init";
+import { refreshFieldReportDigest } from "./report-digest";
 import { refreshRoadStatusEstimate } from "./road-status";
 
 /**
@@ -62,6 +63,19 @@ export const fieldReportRouter = createTRPCRouter({
         console.warn(
           "[field-report] road_status_estimates の更新に失敗しました",
           refreshError,
+        );
+      }
+
+      try {
+        // 同一地点のカード（BE-18）も同じ投稿で作り直す。
+        // 代表的な状態に BE-16 の推定を使うため、必ず推定の後に呼ぶ
+        await refreshFieldReportDigest(ctx.supabase, input.meshCode);
+      } catch (digestError) {
+        // field_report_digests の更新に失敗しても投稿自体は成功させるが、
+        // 痕跡は残す
+        console.warn(
+          "[field-report] field_report_digests の更新に失敗しました",
+          digestError,
         );
       }
 

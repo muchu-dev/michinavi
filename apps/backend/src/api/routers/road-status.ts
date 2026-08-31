@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { generateStructuredJson } from "../../ai/gemini-client";
 import { getServiceRoleClient } from "../../db/service-role";
+import {
+  type AggregatableReport,
+  countByCondition,
+  dedupeReports,
+  majorityCondition,
+} from "../../reports/aggregate";
 import { toTRPCError } from "../errors";
 import type { TRPCContext } from "../init";
 import { createTRPCRouter, publicProcedure } from "../init";
@@ -37,11 +43,6 @@ const GEMINI_RESPONSE_SCHEMA = {
   required: ["meshCode", "roadCondition", "confidence", "reasoning"],
 };
 
-type ActiveReport = {
-  road_condition: "passable" | "caution" | "impassable";
-  created_at: string;
-};
-
 /** この時間より古い投稿は推定の根拠にしない（field_reports の既定の有効期限に合わせる） */
 const REPORT_WINDOW_HOURS = 6;
 /** 1回の推定に使う投稿の上限。プロンプトが無制限に伸びるのを防ぐ */
@@ -56,27 +57,11 @@ const DEFAULT_LIST_LIMIT = 500;
  */
 function majorityVoteFallback(
   meshCode: string,
-  reports: readonly ActiveReport[],
+  reports: readonly AggregatableReport[],
 ): EstimateResult {
-  const counts = { passable: 0, caution: 0, impassable: 0 };
-  for (const report of reports) {
-    counts[report.road_condition] += 1;
-  }
-
-  const severity = { impassable: 2, caution: 1, passable: 0 } as const;
-  let winner: keyof typeof counts = "passable";
-  for (const key of Object.keys(counts) as (keyof typeof counts)[]) {
-    if (
-      counts[key] > counts[winner] ||
-      (counts[key] === counts[winner] && severity[key] > severity[winner])
-    ) {
-      winner = key;
-    }
-  }
-
   return {
     meshCode,
-    roadCondition: winner,
+    roadCondition: majorityCondition(countByCondition(reports)),
     confidence: "low",
     reasoning: "AIの推定に失敗したため、報告件数の多数決で算出しました",
   };
@@ -84,7 +69,7 @@ function majorityVoteFallback(
 
 function buildPrompt(
   meshCode: string,
-  reports: readonly ActiveReport[],
+  reports: readonly AggregatableReport[],
   nowMs: number,
 ): string {
   const items = reports.map((report) => ({
@@ -115,6 +100,9 @@ ${JSON.stringify(items)}
  * 投稿（field_reports の INSERT）を受けて、その mesh_code の道路状態推定を
  * 再計算し road_status_estimates に保存する。
  *
+ * 集計の母数は重複統合後の報告に限る（BE-18）。同じ人が「通れない」を
+ * 3 回送っても 3 票にはならない。
+ *
  * Gemini の呼び出しが失敗しても例外を投げない。呼び出し元（fieldReport.create）の
  * 投稿保存を道連れにしないため、失敗はすべてここで吸収し多数決にフォールバックする。
  */
@@ -128,7 +116,7 @@ export async function refreshRoadStatusEstimate(
 
   const { data, error } = await supabase
     .from("field_reports")
-    .select("road_condition, created_at")
+    .select("user_id, road_condition, created_at")
     .eq("report_type", "road")
     .eq("mesh_code", meshCode)
     .is("deleted_at", null)
@@ -144,12 +132,22 @@ export async function refreshRoadStatusEstimate(
     return;
   }
 
-  const reports = data as ActiveReport[];
-  let result = majorityVoteFallback(meshCode, reports);
+  // report_type = 'road' の行は road_condition が NOT NULL（field_reports_type_check）
+  const { active } = dedupeReports(
+    data.filter(
+      (row): row is AggregatableReport => row.road_condition !== null,
+    ),
+  );
+
+  if (active.length === 0) {
+    return;
+  }
+
+  let result = majorityVoteFallback(meshCode, active);
 
   try {
     const geminiResult = await generateStructuredJson({
-      prompt: buildPrompt(meshCode, reports, Date.now()),
+      prompt: buildPrompt(meshCode, active, Date.now()),
       responseSchema: GEMINI_RESPONSE_SCHEMA,
     });
 
@@ -181,8 +179,9 @@ export async function refreshRoadStatusEstimate(
         mesh_code: meshCode,
         road_condition: result.roadCondition,
         confidence: result.confidence,
-        // 件数はサーバーが知っている事実。モデルの申告値は使わない
-        report_count: reports.length,
+        // 件数はサーバーが知っている事実。モデルの申告値は使わない。
+        // 重複統合後の件数を使う（field_report_digests の reportCount と同じ母数にする）
+        report_count: active.length,
         reasoning: result.reasoning,
         updated_at: new Date().toISOString(),
       },
