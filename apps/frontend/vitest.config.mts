@@ -27,10 +27,12 @@ export default defineConfig({
         "src/components/onboarding/**/*.tsx",
         "src/components/app-shell/**/*.tsx",
         "src/components/map/**/*.tsx",
+        "src/components/report/**/*.tsx",
         "src/config/navigation.ts",
         "src/lib/supabase/proxy.ts",
         "src/lib/auth/**/*.ts",
         "src/lib/onboarding/**/*.ts",
+        "src/lib/report/**/*.ts",
       ],
       thresholds: {
         branches: 80,

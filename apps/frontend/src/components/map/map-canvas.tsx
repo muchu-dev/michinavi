@@ -10,6 +10,7 @@ import {
   TileLayer,
   useMap,
 } from "react-leaflet";
+import { ReportButton } from "@/components/report/report-button";
 import {
   quarterMeshCodeToCenter,
   toQuarterMeshCode,
@@ -279,6 +280,11 @@ function ReportGroupDetails({ reports }: { reports: MapReport[] }) {
                 timeZone: "Asia/Tokyo",
               }).format(new Date(report.createdAt))}
             </time>
+            {/* 通報は、投稿の中身が見えている場所からしか押せないようにする（FE-18） */}
+            <ReportButton
+              fieldReportId={report.id}
+              targetSummary={getReportLabel(report.roadCondition)}
+            />
           </li>
         ))}
       </ul>

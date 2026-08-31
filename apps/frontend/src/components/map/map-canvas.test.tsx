@@ -313,4 +313,31 @@ describe("MapCanvas", () => {
     });
     expect(screen.queryAllByTestId("map-marker")).toHaveLength(0);
   });
+
+  it("exposes the report entry point on each report in the popup (FE-18)", () => {
+    render(
+      <MapCanvas
+        reports={[
+          {
+            id: "report-1",
+            meshCode: "5133756531",
+            roadCondition: "impassable",
+            createdAt: "2026-08-29T00:00:00.000Z",
+          },
+          {
+            id: "report-2",
+            meshCode: "5133756531",
+            roadCondition: "caution",
+            createdAt: "2026-08-28T23:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    // 通報は、投稿の中身が見えている場所からしか押せないようにしている。
+    // 1 件ごとに導線を出すので、まとまった 2 件ぶんのボタンが並ぶ
+    expect(
+      screen.getAllByRole("button", { name: "この投稿を通報する" }),
+    ).toHaveLength(2);
+  });
 });
