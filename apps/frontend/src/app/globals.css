@@ -3,9 +3,11 @@
 :root {
   --background: #f4f6f7;
   --foreground: #1d1b20;
-  --brand: #597ebf;
+  /* 白抜きの文字を載せても 4.5:1 を超える濃さにする（FE-19） */
+  --brand: #3f63a5;
   --brand-soft: #c7dcff;
-  --muted: #6b7076;
+  /* surface / app-surface / app-canvas のどれに載せても 5:1 を超える濃さ（FE-19） */
+  --muted: #5c636b;
   --outline: #d9dde1;
   --neutral-soft: #d9d9d9;
   --surface: #ffffff;
@@ -18,6 +20,8 @@
   --caution-contrast: #faf0de;
   --impassable: #c7362a;
   --impassable-soft: var(--color-red-50);
+  /* タップ領域の最小の一辺。src/config/disaster-ui.ts と同じ値（FE-19） */
+  --tap-min: 2.75rem;
 }
 
 @theme inline {
@@ -52,6 +56,9 @@
 
 html {
   background: var(--app-canvas);
+  /* 端末を横にしたときに、ブラウザが勝手に文字を拡大縮小しないようにする */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -93,6 +100,12 @@ a {
   outline-offset: 3px;
 }
 
+/* 指で押す部品の下限。文字量に関わらずこの大きさを割らない（FE-19） */
+.tap-target {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+}
+
 .nav-icon {
   display: block;
   mask-image: var(--nav-icon);
@@ -108,6 +121,14 @@ a {
 
 .leaflet-control-attribution {
   font-size: 0.625rem;
+}
+
+/* 端末側でコントラストを上げている人には、さらに強い配色を出す（FE-19） */
+@media (prefers-contrast: more) {
+  :root {
+    --muted: #3f454b;
+    --outline: #9aa1a8;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

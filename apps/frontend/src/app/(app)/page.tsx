@@ -7,11 +7,11 @@ export default function MapPage() {
       aria-labelledby="map-title"
     >
       <header className="relative z-[600] shrink-0 border-b border-outline bg-surface shadow-sm">
-        <div className="flex min-h-9 items-center justify-between gap-3 px-3">
+        <div className="flex min-h-11 items-center justify-between gap-3 px-3">
           <div className="flex min-w-0 items-center gap-1.5">
             <svg
               aria-hidden="true"
-              className="size-3.5 shrink-0 text-brand"
+              className="size-5 shrink-0 text-brand"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -23,19 +23,19 @@ export default function MapPage() {
             </svg>
             <h1
               id="map-title"
-              className="truncate text-xs font-black tracking-[0.02em] text-ink"
+              className="truncate text-base font-black tracking-[0.02em] text-ink"
             >
               倉敷市真備町&nbsp;&nbsp;周辺（デモ）
             </h1>
           </div>
 
-          <p className="shrink-0 text-[0.5625rem] font-bold text-muted">
+          <p className="shrink-0 text-sm font-bold text-muted">
             サンプル：9:41更新・投稿24件
           </p>
         </div>
 
-        <div className="flex min-h-7 items-center border-t border-outline/60 px-3">
-          <p className="inline-flex items-center gap-1 rounded bg-caution-soft px-1.5 py-0.5 text-[0.5625rem] font-black text-caution-ink">
+        <div className="flex min-h-11 items-center border-t border-outline/60 px-3">
+          <p className="inline-flex items-center gap-1.5 rounded-lg bg-caution-soft px-2.5 py-1 text-sm font-black text-caution-ink">
             <span>サンプル表示</span>
             <span aria-hidden="true">｜</span>
             <span>警戒レベル4・避難指示</span>
