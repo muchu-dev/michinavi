@@ -167,6 +167,181 @@ export type Database = {
           },
         ];
       };
+      evacuation_advices: {
+        Row: {
+          area_id: string;
+          created_at: string;
+          expires_at: string;
+          generated_at: string;
+          home_mesh_code: string;
+          household_id: string;
+          id: string;
+          input_snapshot: Json;
+          is_ai_generated: boolean;
+          summary: string;
+          user_id: string;
+        };
+        Insert: {
+          area_id: string;
+          created_at?: string;
+          expires_at: string;
+          generated_at?: string;
+          home_mesh_code: string;
+          household_id: string;
+          id?: string;
+          input_snapshot: Json;
+          is_ai_generated?: boolean;
+          summary: string;
+          user_id: string;
+        };
+        Update: {
+          area_id?: string;
+          created_at?: string;
+          expires_at?: string;
+          generated_at?: string;
+          home_mesh_code?: string;
+          household_id?: string;
+          id?: string;
+          input_snapshot?: Json;
+          is_ai_generated?: boolean;
+          summary?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "evacuation_advices_area_id_fkey";
+            columns: ["area_id"];
+            isOneToOne: false;
+            referencedRelation: "areas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evacuation_advices_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evacuation_advices_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      evacuation_options: {
+        Row: {
+          created_at: string;
+          estimated_minutes: number | null;
+          evacuation_advice_id: string;
+          id: string;
+          option_type: Database["public"]["Enums"]["evacuation_option_type"];
+          rank: number;
+          reason: string;
+          risk_note: string | null;
+          title: string;
+          travel_mode: Database["public"]["Enums"]["travel_mode"];
+        };
+        Insert: {
+          created_at?: string;
+          estimated_minutes?: number | null;
+          evacuation_advice_id: string;
+          id?: string;
+          option_type: Database["public"]["Enums"]["evacuation_option_type"];
+          rank: number;
+          reason: string;
+          risk_note?: string | null;
+          title: string;
+          travel_mode: Database["public"]["Enums"]["travel_mode"];
+        };
+        Update: {
+          created_at?: string;
+          estimated_minutes?: number | null;
+          evacuation_advice_id?: string;
+          id?: string;
+          option_type?: Database["public"]["Enums"]["evacuation_option_type"];
+          rank?: number;
+          reason?: string;
+          risk_note?: string | null;
+          title?: string;
+          travel_mode?: Database["public"]["Enums"]["travel_mode"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "evacuation_options_evacuation_advice_id_fkey";
+            columns: ["evacuation_advice_id"];
+            isOneToOne: false;
+            referencedRelation: "evacuation_advices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      evacuation_switch_criteria: {
+        Row: {
+          comparator: string | null;
+          created_at: string;
+          description: string;
+          display_order: number;
+          evacuation_advice_id: string;
+          evacuation_option_id: string;
+          id: string;
+          switch_to_option_id: string | null;
+          threshold_unit: string | null;
+          threshold_value: number | null;
+          trigger_type: Database["public"]["Enums"]["switch_trigger_type"];
+        };
+        Insert: {
+          comparator?: string | null;
+          created_at?: string;
+          description: string;
+          display_order?: number;
+          evacuation_advice_id: string;
+          evacuation_option_id: string;
+          id?: string;
+          switch_to_option_id?: string | null;
+          threshold_unit?: string | null;
+          threshold_value?: number | null;
+          trigger_type: Database["public"]["Enums"]["switch_trigger_type"];
+        };
+        Update: {
+          comparator?: string | null;
+          created_at?: string;
+          description?: string;
+          display_order?: number;
+          evacuation_advice_id?: string;
+          evacuation_option_id?: string;
+          id?: string;
+          switch_to_option_id?: string | null;
+          threshold_unit?: string | null;
+          threshold_value?: number | null;
+          trigger_type?: Database["public"]["Enums"]["switch_trigger_type"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "evacuation_switch_criteria_evacuation_option_id_fkey";
+            columns: ["evacuation_option_id"];
+            isOneToOne: false;
+            referencedRelation: "evacuation_options";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evacuation_switch_criteria_option_fk";
+            columns: ["evacuation_option_id", "evacuation_advice_id"];
+            isOneToOne: false;
+            referencedRelation: "evacuation_options";
+            referencedColumns: ["id", "evacuation_advice_id"];
+          },
+          {
+            foreignKeyName: "evacuation_switch_criteria_switch_to_fk";
+            columns: ["switch_to_option_id", "evacuation_advice_id"];
+            isOneToOne: false;
+            referencedRelation: "evacuation_options";
+            referencedColumns: ["id", "evacuation_advice_id"];
+          },
+        ];
+      };
       field_report_photos: {
         Row: {
           byte_size: number;
@@ -988,6 +1163,20 @@ export type Database = {
           name: string;
         }[];
       };
+      save_evacuation_advice: {
+        Args: {
+          p_input_snapshot: Json;
+          p_is_ai_generated: boolean;
+          p_options: Json;
+          p_summary: string;
+          p_valid_minutes?: number;
+        };
+        Returns: {
+          evacuation_advice_id: string;
+          household_id: string;
+          option_count: number;
+        }[];
+      };
       setup_user_account: {
         Args: {
           p_age_group?: Database["public"]["Enums"]["age_group"];
@@ -1041,6 +1230,13 @@ export type Database = {
       acceptance_status: "available" | "limited" | "unavailable" | "unknown";
       age_group: "infant" | "child" | "adult" | "senior";
       ai_confidence: "high" | "medium" | "low";
+      evacuation_option_type:
+        | "stay_home"
+        | "designated_shelter"
+        | "relative_house"
+        | "vertical"
+        | "early_move"
+        | "other";
       field_report_type: "road" | "hazard" | "shop" | "other";
       flag_reason: "false_info" | "privacy" | "spam" | "abuse" | "other";
       flag_status: "open" | "reviewing" | "actioned" | "dismissed";
@@ -1083,6 +1279,15 @@ export type Database = {
         | "temporary"
         | "other";
       status_share_scope: "household" | "family" | "none";
+      switch_trigger_type:
+        | "alert_level"
+        | "rainfall"
+        | "river_level"
+        | "daylight"
+        | "elapsed_time"
+        | "observation"
+        | "congestion";
+      travel_mode: "walk" | "car" | "bicycle" | "none";
       user_status:
         | "unknown"
         | "safe_home"
@@ -1225,6 +1430,14 @@ export const Constants = {
       acceptance_status: ["available", "limited", "unavailable", "unknown"],
       age_group: ["infant", "child", "adult", "senior"],
       ai_confidence: ["high", "medium", "low"],
+      evacuation_option_type: [
+        "stay_home",
+        "designated_shelter",
+        "relative_house",
+        "vertical",
+        "early_move",
+        "other",
+      ],
       field_report_type: ["road", "hazard", "shop", "other"],
       flag_reason: ["false_info", "privacy", "spam", "abuse", "other"],
       flag_status: ["open", "reviewing", "actioned", "dismissed"],
@@ -1265,6 +1478,16 @@ export const Constants = {
         "other",
       ],
       status_share_scope: ["household", "family", "none"],
+      switch_trigger_type: [
+        "alert_level",
+        "rainfall",
+        "river_level",
+        "daylight",
+        "elapsed_time",
+        "observation",
+        "congestion",
+      ],
+      travel_mode: ["walk", "car", "bicycle", "none"],
       user_status: [
         "unknown",
         "safe_home",
