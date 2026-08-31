@@ -29,11 +29,23 @@ export type TestUser = {
 
 let sequence = 0;
 
+export type CreateTestUserOptions = {
+  /**
+   * JWT の app_metadata.app_role に載せる役割（S4）。
+   * 運営（`"moderator"`）の権限は users の列ではなくこのクレームで決まる
+   * （docs/er/07-safety-moderation.md#ポリシーの一覧）。
+   * app_metadata は管理 API からしか書けないため、テストでもここから渡す。
+   */
+  appRole?: "moderator";
+};
+
 /**
  * Supabase Auth 上にユーザーを作り、ログイン済みのアクセストークンを返す。
  * アプリ内のプロフィール（public.users）はまだ無い状態になる。
  */
-export async function createTestUser(): Promise<TestUser> {
+export async function createTestUser(
+  options: CreateTestUserOptions = {},
+): Promise<TestUser> {
   const serviceRole = createServiceRoleClient();
   sequence += 1;
   const email = `test-${Date.now()}-${sequence}@example.test`;
@@ -44,6 +56,7 @@ export async function createTestUser(): Promise<TestUser> {
       email,
       password,
       email_confirm: true,
+      app_metadata: options.appRole ? { app_role: options.appRole } : undefined,
     });
 
   if (createError || !created.user) {

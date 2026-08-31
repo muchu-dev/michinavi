@@ -54,11 +54,18 @@ export const fieldReportRouter = createTRPCRouter({
       };
     }),
 
-  /** 通行可否の投稿を新しい順に返す（BE-11） */
+  /**
+   * 通行可否の投稿を新しい順に返す（BE-11）。
+   *
+   * 運営が非表示にした投稿を落とす条件はここに書かず、RLS に任せる（BE-24）。
+   * 条件を router 側にも書くと、「自分の投稿は状態にかかわらず見える」という
+   * 例外まで二重に持つことになり、片方だけ直す事故が起きる。
+   * 本人が自分の非表示の投稿を見たときに分かるよう、status を返す
+   */
   list: publicProcedure.input(listInputSchema).query(async ({ ctx, input }) => {
     const { data, error } = await ctx.supabase
       .from("field_reports")
-      .select("id, mesh_code, road_condition, created_at")
+      .select("id, mesh_code, road_condition, status, created_at")
       .eq("report_type", "road")
       .order("created_at", { ascending: false })
       .limit(input.limit);
@@ -71,6 +78,7 @@ export const fieldReportRouter = createTRPCRouter({
       id: row.id,
       meshCode: row.mesh_code,
       roadCondition: row.road_condition,
+      status: row.status,
       createdAt: row.created_at,
     }));
   }),
