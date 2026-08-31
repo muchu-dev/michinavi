@@ -1,4 +1,5 @@
 import { createTRPCRouter } from "./init";
+import { areaRouter } from "./routers/area";
 import { fieldReportRouter } from "./routers/field-report";
 import { healthRouter } from "./routers/health";
 import { householdRouter } from "./routers/household";
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   user: userRouter,
   household: householdRouter,
   fieldReport: fieldReportRouter,
+  area: areaRouter,
 });
 
 export type AppRouter = typeof appRouter;
