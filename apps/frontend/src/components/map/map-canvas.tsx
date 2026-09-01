@@ -106,7 +106,7 @@ export function MapCanvas() {
           >
             <Popup>
               <strong>
-                {getReportLabel(report.kind, report.roadCondition)}
+                {getReportLabel(report.kind, report.roadCondition)}（サンプル）
               </strong>
               {report.floodDepthCm === null ? null : (
                 <span>（水深 {report.floodDepthCm}cm）</span>

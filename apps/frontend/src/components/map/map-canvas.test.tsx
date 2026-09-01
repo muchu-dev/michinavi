@@ -62,7 +62,7 @@ describe("MapCanvas", () => {
     expect(screen.queryAllByTestId("map-route")).toHaveLength(0);
     expect(screen.queryAllByTestId("map-marker")).toHaveLength(0);
     expect(screen.queryByText("現在地（デモ）")).toBeNull();
-    expect(screen.getByText("通行不可・冠水")).toBeTruthy();
+    expect(screen.getByText("通行不可・冠水（サンプル）")).toBeTruthy();
     expect(screen.getByText("（水深 30cm）")).toBeTruthy();
     expect(screen.getByText("道路が冠水しています")).toBeTruthy();
     expect(createDivIcon).toHaveBeenCalledWith(
