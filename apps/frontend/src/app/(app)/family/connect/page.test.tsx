@@ -6,7 +6,7 @@ afterEach(cleanup);
 
 describe("FamilyConnectPage", () => {
   it("defines route metadata", () => {
-    expect(metadata.title).toBe("家族と連携 | みちなび");
+    expect(metadata.title).toBe("家族と連携");
   });
 
   it("shows the Family connection controls from the supplied design", () => {

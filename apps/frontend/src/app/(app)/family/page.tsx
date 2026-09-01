@@ -1,52 +1,75 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { ChevronRight } from "@/components/ui/chevron-right";
+
+export const metadata: Metadata = {
+  title: "家族",
+  description: "連携している家族の避難状況を確認します。",
+};
+
+const statusDetails = {
+  evacuated: {
+    label: "避難済み",
+    className: "bg-neutral-soft text-ink",
+  },
+  needs_help: {
+    label: "支援が必要",
+    className: "bg-caution text-caution-contrast",
+  },
+} as const;
+
+type FamilyStatus = keyof typeof statusDetails;
 
 const familyMembers = [
   {
     name: "母",
-    status: "避難済み",
-    statusClassName: "bg-[#d9d9d9] text-ink",
+    status: "evacuated",
   },
   {
     name: "父",
-    status: "支援が必要",
-    statusClassName: "bg-caution text-[#faf0de]",
+    status: "needs_help",
   },
-] as const;
+] as const satisfies ReadonlyArray<{ name: string; status: FamilyStatus }>;
 
 export default function FamilyPage() {
   return (
     <section className="flex flex-1 flex-col bg-surface px-7 py-14 sm:px-9">
       <h1 className="sr-only">家族の状況</h1>
 
+      <p className="mb-8 text-sm font-bold text-caution-ink">
+        サンプル表示です
+      </p>
+
       <ul aria-label="家族の避難状況" className="space-y-10">
-        {familyMembers.map((member) => (
-          <li
-            key={member.name}
-            className="flex min-h-[3.25rem] items-center justify-between gap-5"
-          >
-            <span className="text-[1.5625rem] leading-tight font-normal text-muted">
-              {member.name}
-            </span>
-            <span
-              className={`flex min-h-[3.25rem] w-[min(15rem,64vw)] items-center justify-center rounded-full px-5 text-center text-[1.5625rem] leading-tight font-bold ${member.statusClassName}`}
+        {familyMembers.map((member) => {
+          const status = statusDetails[member.status];
+
+          return (
+            <li
+              key={member.name}
+              className="flex min-h-[3.25rem] items-center justify-between gap-5"
             >
-              {member.status}
-            </span>
-          </li>
-        ))}
+              <span className="text-family-label leading-tight font-normal text-muted">
+                {member.name}
+              </span>
+              <span
+                className={`text-family-label flex min-h-[3.25rem] w-[min(15rem,64vw)] items-center justify-center rounded-full px-5 text-center leading-tight font-bold ${status.className}`}
+              >
+                {status.label}
+              </span>
+            </li>
+          );
+        })}
       </ul>
 
       <Link
         href="/family/settings"
         className="mt-14 flex min-h-12 items-center justify-between gap-5 rounded-lg text-muted outline-none transition-colors hover:text-brand focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-brand"
       >
-        <span className="text-[1.5625rem] leading-tight font-normal text-muted">
+        <span className="text-family-label leading-tight font-normal text-muted">
           設定
         </span>
-        <span
-          aria-hidden="true"
-          className="mr-1 size-4 rotate-45 border-t-[0.1875rem] border-r-[0.1875rem] border-muted"
-        />
+        <ChevronRight />
       </Link>
     </section>
   );

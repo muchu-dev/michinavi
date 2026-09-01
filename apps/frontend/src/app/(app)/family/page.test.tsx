@@ -6,7 +6,7 @@ afterEach(cleanup);
 
 describe("FamilyPage", () => {
   it("defines route metadata", () => {
-    expect(metadata.title).toBe("家族 | みちなび");
+    expect(metadata.title).toBe("家族");
   });
 
   it("shows each family member with their current evacuation status", () => {

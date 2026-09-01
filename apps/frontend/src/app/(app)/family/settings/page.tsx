@@ -1,13 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { ChevronRight } from "@/components/ui/chevron-right";
 
-function Chevron() {
-  return (
-    <span
-      aria-hidden="true"
-      className="mr-1 size-4 rotate-45 border-t-[0.1875rem] border-r-[0.1875rem] border-current"
-    />
-  );
-}
+export const metadata: Metadata = {
+  title: "家族の設定",
+  description: "家族情報の設定と家族連携を行います。",
+};
+
+const unavailableSettings = ["家族構成の登録・更新", "個人情報の編集"];
 
 export default function FamilySettingsPage() {
   return (
@@ -16,33 +16,28 @@ export default function FamilySettingsPage() {
 
       <nav aria-label="家族の設定メニュー">
         <ul className="space-y-2">
-          <li>
-            <button
-              type="button"
-              disabled
-              className="flex min-h-16 w-full items-center justify-between gap-5 text-left text-[1.5625rem] leading-tight font-normal text-muted disabled:cursor-not-allowed"
-            >
-              <span>家族構成の登録・更新</span>
-              <Chevron />
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              disabled
-              className="flex min-h-16 w-full items-center justify-between gap-5 text-left text-[1.5625rem] leading-tight font-normal text-muted disabled:cursor-not-allowed"
-            >
-              <span>個人情報の編集</span>
-              <Chevron />
-            </button>
-          </li>
+          {unavailableSettings.map((label) => (
+            <li key={label}>
+              <button
+                type="button"
+                aria-disabled="true"
+                className="text-family-label flex min-h-16 w-full cursor-not-allowed items-center justify-between gap-5 rounded-lg bg-outline/30 px-3 text-left leading-tight font-normal text-muted outline-none focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-brand"
+              >
+                <span className="flex flex-wrap items-baseline gap-x-2">
+                  <span>{label}</span>
+                  <span className="text-sm font-bold">（準備中）</span>
+                </span>
+                <ChevronRight />
+              </button>
+            </li>
+          ))}
           <li>
             <Link
               href="/family/connect"
-              className="flex min-h-16 items-center justify-between gap-5 rounded-lg text-[1.5625rem] leading-tight font-normal text-muted outline-none transition-colors hover:text-brand focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-brand"
+              className="text-family-label flex min-h-16 items-center justify-between gap-5 rounded-lg leading-tight font-normal text-muted outline-none transition-colors hover:text-brand focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-brand"
             >
               <span>連携</span>
-              <Chevron />
+              <ChevronRight />
             </Link>
           </li>
         </ul>

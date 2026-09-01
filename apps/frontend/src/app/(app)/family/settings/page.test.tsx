@@ -6,7 +6,7 @@ afterEach(cleanup);
 
 describe("FamilySettingsPage", () => {
   it("defines route metadata", () => {
-    expect(metadata.title).toBe("家族の設定 | みちなび");
+    expect(metadata.title).toBe("家族の設定");
   });
 
   it("shows the settings entries from the supplied Family design", () => {
