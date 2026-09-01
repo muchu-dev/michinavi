@@ -1,10 +1,14 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import FamilyPage from "./page";
+import FamilyPage, { metadata } from "./page";
 
 afterEach(cleanup);
 
 describe("FamilyPage", () => {
+  it("defines route metadata", () => {
+    expect(metadata.title).toBe("家族 | みちなび");
+  });
+
   it("shows each family member with their current evacuation status", () => {
     render(<FamilyPage />);
 
@@ -22,6 +26,7 @@ describe("FamilyPage", () => {
     expect(within(statusItems[0]).getByText("避難済み")).toBeDefined();
     expect(within(statusItems[1]).getByText("父")).toBeDefined();
     expect(within(statusItems[1]).getByText("支援が必要")).toBeDefined();
+    expect(screen.getByText("サンプル表示です")).toBeDefined();
   });
 
   it("shows the family settings entry without unfinished placeholder copy", () => {
