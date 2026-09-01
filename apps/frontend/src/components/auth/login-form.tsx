@@ -85,7 +85,7 @@ export function LoginForm({ action = login, previewHref }: LoginFormProps) {
       {state.message ? (
         <p
           aria-live="polite"
-          className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-impassable"
+          className="mt-4 rounded-lg bg-impassable-soft px-3 py-2 text-sm font-semibold text-impassable"
           role="alert"
         >
           {state.message}

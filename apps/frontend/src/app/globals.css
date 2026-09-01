@@ -15,6 +15,7 @@
   --caution-soft: #fff2d8;
   --caution-ink: #8a5200;
   --impassable: #c7362a;
+  --impassable-soft: var(--color-red-50);
 }
 
 @theme inline {
@@ -32,6 +33,7 @@
   --color-caution-soft: var(--caution-soft);
   --color-caution-ink: var(--caution-ink);
   --color-impassable: var(--impassable);
+  --color-impassable-soft: var(--impassable-soft);
   --color-ink: var(--foreground);
   --font-sans:
     "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
