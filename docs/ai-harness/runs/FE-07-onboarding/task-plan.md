@@ -36,7 +36,7 @@
 
 - Implemented `/onboarding` as a seven-step, in-memory wizard following the supplied eight-screen sequence including login.
 - Added the local-development preview entry on `/login`; real authentication now redirects to `/onboarding`.
-- Persistence is intentionally not connected: BE-09/BE-10 are not implemented, and exact address/care data is not written to browser storage or logs.
+- Persistence is intentionally not connected: BE-09/BE-10 now provide part of the backend path, but the preview fields cannot yet produce the required member, pet, care-need, area, and mesh payload without inventing data. The exact contract gaps are recorded in `backend-handoff.md`.
 - Verification: 33 frontend tests passed; coverage 94.38% statements / 94.07% branches / 85.96% functions / 94.64% lines; Biome and TypeScript passed.
 - Production build: Next.js Turbopack reached an internal compile failure without an actionable source error in this environment; the supported `next build --webpack` path completed successfully and generated `/login` and `/onboarding`.
 - Runtime: auth-bypass development server restarted on port 3000; `/login` and `/onboarding` both returned HTTP 200 with their expected screen copy.

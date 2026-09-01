@@ -62,12 +62,8 @@ describe("OnboardingFlow", () => {
     fireEvent.click(screen.getByRole("button", { name: "次へ" }));
 
     const alert = screen.getByRole("alert");
-    expect(alert.textContent).toContain(
-      "年代を選択してください。",
-    );
-    expect(alert.textContent).toContain(
-      "性別を選択してください。",
-    );
+    expect(alert.textContent).toContain("年代を選択してください。");
+    expect(alert.textContent).toContain("性別を選択してください。");
     expect(alert.className).toContain("bg-impassable-soft");
     expect(document.activeElement).toBe(alert);
   });
