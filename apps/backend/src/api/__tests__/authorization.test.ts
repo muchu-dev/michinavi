@@ -50,6 +50,9 @@ const PUBLICLY_READABLE_TABLES = new Set([
   // レート制限のしきい値マスタ。個人データを含まない運用パラメータで、
   // 画面側で「あと何回投稿できるか」を出す用途にも使える（BE-23）
   "rate_limits",
+  // mesh_code ごとの道路状態のAI推定（BE-16）。地図表示用で、field_reports と
+  // 同じく未ログインでも見える（roadStatus.list は publicProcedure）
+  "road_status_estimates",
 ]);
 
 /**

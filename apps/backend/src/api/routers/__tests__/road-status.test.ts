@@ -25,12 +25,17 @@ const createdUserIds: string[] = [];
  * field_reports は user_id が ON DELETE RESTRICT のため、テスト後も残り続ける
  * （投稿は証拠として保持する設計。docs/er/00-conventions.md#外部キーの削除規則）。
  * 固定の mesh_code を使うと、再実行のたびに前回の投稿が積み上がって
- * 件数の検証が壊れるため、実行のたびに異なる mesh_code を使う
+ * 件数の検証が壊れるため、実行のたびに異なる mesh_code を使う。
+ *
+ * 分割区画（末尾2桁）だけは 1〜4 に収める。地域メッシュの実装
+ * （BE-20、apps/backend/src/location/mesh-code.ts）はこの2桁が 1〜4 でないと
+ * quarterMeshCodeToCenter で例外にするため、この桁だけは形式を守っておく
  */
 let meshCodeSequence = 0;
 function uniqueMeshCode(): string {
   meshCodeSequence += 1;
-  return `51${String(Date.now()).slice(-6)}${String(meshCodeSequence).padStart(2, "0")}`;
+  const quadrant = (n: number) => String((n % 4) + 1);
+  return `51${String(Date.now()).slice(-6)}${quadrant(meshCodeSequence)}${quadrant(meshCodeSequence + 1)}`;
 }
 
 async function newRegisteredUser(): Promise<TestUser> {
@@ -90,7 +95,6 @@ describe("投稿による road_status_estimates の再計算(BE-16)", () => {
         meshCode,
         roadCondition: "caution",
         confidence: "high",
-        reportCount: 1,
         reasoning: "直近の報告に基づく推定",
       }),
     });
@@ -120,7 +124,6 @@ describe("投稿による road_status_estimates の再計算(BE-16)", () => {
         meshCode: "9999999999",
         roadCondition: "impassable",
         confidence: "high",
-        reportCount: 1,
         reasoning: "別の地点についての誤った回答",
       }),
     });

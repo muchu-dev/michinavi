@@ -667,6 +667,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      road_status_estimates: {
+        Row: {
+          confidence: Database["public"]["Enums"]["ai_confidence"];
+          mesh_code: string;
+          reasoning: string;
+          report_count: number;
+          road_condition: Database["public"]["Enums"]["road_condition"];
+          updated_at: string;
+        };
+        Insert: {
+          confidence: Database["public"]["Enums"]["ai_confidence"];
+          mesh_code: string;
+          reasoning: string;
+          report_count: number;
+          road_condition: Database["public"]["Enums"]["road_condition"];
+          updated_at?: string;
+        };
+        Update: {
+          confidence?: Database["public"]["Enums"]["ai_confidence"];
+          mesh_code?: string;
+          reasoning?: string;
+          report_count?: number;
+          road_condition?: Database["public"]["Enums"]["road_condition"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       shelter_acceptances: {
         Row: {
           condition_id: string;
@@ -1013,6 +1040,7 @@ export type Database = {
     Enums: {
       acceptance_status: "available" | "limited" | "unavailable" | "unknown";
       age_group: "infant" | "child" | "adult" | "senior";
+      ai_confidence: "high" | "medium" | "low";
       field_report_type: "road" | "hazard" | "shop" | "other";
       flag_reason: "false_info" | "privacy" | "spam" | "abuse" | "other";
       flag_status: "open" | "reviewing" | "actioned" | "dismissed";
@@ -1196,6 +1224,7 @@ export const Constants = {
     Enums: {
       acceptance_status: ["available", "limited", "unavailable", "unknown"],
       age_group: ["infant", "child", "adult", "senior"],
+      ai_confidence: ["high", "medium", "low"],
       field_report_type: ["road", "hazard", "shop", "other"],
       flag_reason: ["false_info", "privacy", "spam", "abuse", "other"],
       flag_status: ["open", "reviewing", "actioned", "dismissed"],

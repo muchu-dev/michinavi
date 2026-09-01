@@ -8,12 +8,15 @@ import { createTRPCRouter, publicProcedure } from "../init";
 const roadConditionSchema = z.enum(["passable", "caution", "impassable"]);
 const confidenceSchema = z.enum(["high", "medium", "low"]);
 
-/** Gemini からの応答の形。呼び出し元は必ずこれで検証する */
+/**
+ * Gemini からの応答の形。呼び出し元は必ずこれで検証する。
+ * reportCount はここに含めない。件数はサーバーが知っている事実であって
+ * モデルに申告させるものではないため、常に reports.length で上書きする
+ */
 const estimateResponseSchema = z.object({
   meshCode: z.string().regex(/^\d{10}$/),
   roadCondition: roadConditionSchema,
   confidence: confidenceSchema,
-  reportCount: z.int().min(1),
   reasoning: z.string().trim().min(1).max(200),
 });
 
@@ -29,22 +32,22 @@ const GEMINI_RESPONSE_SCHEMA = {
       enum: ["passable", "caution", "impassable"],
     },
     confidence: { type: "string", enum: ["high", "medium", "low"] },
-    reportCount: { type: "integer" },
     reasoning: { type: "string" },
   },
-  required: [
-    "meshCode",
-    "roadCondition",
-    "confidence",
-    "reportCount",
-    "reasoning",
-  ],
+  required: ["meshCode", "roadCondition", "confidence", "reasoning"],
 };
 
 type ActiveReport = {
   road_condition: "passable" | "caution" | "impassable";
   created_at: string;
 };
+
+/** この時間より古い投稿は推定の根拠にしない（field_reports の既定の有効期限に合わせる） */
+const REPORT_WINDOW_HOURS = 6;
+/** 1回の推定に使う投稿の上限。プロンプトが無制限に伸びるのを防ぐ */
+const MAX_REPORTS_PER_ESTIMATE = 50;
+/** 1回の一覧取得で返す上限 */
+const DEFAULT_LIST_LIMIT = 500;
 
 /**
  * Gemini が使えない・出力が不正なときのフォールバック。
@@ -75,7 +78,6 @@ function majorityVoteFallback(
     meshCode,
     roadCondition: winner,
     confidence: "low",
-    reportCount: reports.length,
     reasoning: "AIの推定に失敗したため、報告件数の多数決で算出しました",
   };
 }
@@ -120,15 +122,25 @@ export async function refreshRoadStatusEstimate(
   supabase: TRPCContext["supabase"],
   meshCode: string,
 ): Promise<void> {
+  const since = new Date(
+    Date.now() - REPORT_WINDOW_HOURS * 60 * 60 * 1000,
+  ).toISOString();
+
   const { data, error } = await supabase
     .from("field_reports")
     .select("road_condition, created_at")
     .eq("report_type", "road")
     .eq("mesh_code", meshCode)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(MAX_REPORTS_PER_ESTIMATE);
 
   // 対象が読めない・0 件なら更新するものが無い
   if (error || !data || data.length === 0) {
+    if (error) {
+      console.warn("[road-status] field_reports の取得に失敗しました", error);
+    }
     return;
   }
 
@@ -155,18 +167,41 @@ export async function refreshRoadStatusEstimate(
   }
 
   const serviceRole = getServiceRoleClient();
-  await serviceRole.from("road_status_estimates").upsert(
-    {
-      mesh_code: meshCode,
-      road_condition: result.roadCondition,
-      confidence: result.confidence,
-      report_count: result.reportCount,
-      reasoning: result.reasoning,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "mesh_code" },
-  );
+  if (!serviceRole) {
+    console.warn(
+      "[road-status] SUPABASE_SECRET_KEY が未設定のため road_status_estimates を更新できません",
+    );
+    return;
+  }
+
+  const { error: upsertError } = await serviceRole
+    .from("road_status_estimates")
+    .upsert(
+      {
+        mesh_code: meshCode,
+        road_condition: result.roadCondition,
+        confidence: result.confidence,
+        // 件数はサーバーが知っている事実。モデルの申告値は使わない
+        report_count: reports.length,
+        reasoning: result.reasoning,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "mesh_code" },
+    );
+
+  if (upsertError) {
+    console.warn(
+      "[road-status] road_status_estimates の更新に失敗しました",
+      upsertError,
+    );
+  }
 }
+
+const listInputSchema = z
+  .object({
+    limit: z.int().min(1).max(DEFAULT_LIST_LIMIT).default(DEFAULT_LIST_LIMIT),
+  })
+  .default({ limit: DEFAULT_LIST_LIMIT });
 
 export const roadStatusRouter = createTRPCRouter({
   /**
@@ -174,12 +209,14 @@ export const roadStatusRouter = createTRPCRouter({
    * 保存済みの推定を読むだけで、この procedure 自体は Gemini を呼ばない
    * （閲覧のたびに呼ぶと費用と待ち時間が計算不能になるため）。
    */
-  list: publicProcedure.query(async ({ ctx }) => {
+  list: publicProcedure.input(listInputSchema).query(async ({ ctx, input }) => {
     const { data, error } = await ctx.supabase
       .from("road_status_estimates")
       .select(
         "mesh_code, road_condition, confidence, report_count, reasoning, updated_at",
-      );
+      )
+      .order("updated_at", { ascending: false })
+      .limit(input.limit);
 
     if (error) {
       throw toTRPCError(error, "道路状態の取得に失敗しました");

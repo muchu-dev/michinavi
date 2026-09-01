@@ -56,8 +56,13 @@ export const fieldReportRouter = createTRPCRouter({
       try {
         // AI推定の失敗が投稿の成否に影響しないよう、ここで吸収する（BE-16）
         await refreshRoadStatusEstimate(ctx.supabase, input.meshCode);
-      } catch {
-        // road_status_estimates の更新に失敗しても投稿自体は成功させる
+      } catch (refreshError) {
+        // road_status_estimates の更新に失敗しても投稿自体は成功させるが、
+        // 痕跡は残す（空の catch だと障害時にどこで落ちたか分からなくなる）
+        console.warn(
+          "[field-report] road_status_estimates の更新に失敗しました",
+          refreshError,
+        );
       }
 
       return {
