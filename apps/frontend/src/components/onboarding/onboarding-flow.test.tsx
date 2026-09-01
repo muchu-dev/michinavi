@@ -1,10 +1,13 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const routerPush = vi.hoisted(() => vi.fn());
+const { routerPush, routerReplace } = vi.hoisted(() => ({
+  routerPush: vi.fn(),
+  routerReplace: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: routerPush }),
+  useRouter: () => ({ push: routerPush, replace: routerReplace }),
 }));
 
 import { OnboardingFlow } from "./onboarding-flow";
@@ -12,6 +15,7 @@ import { OnboardingFlow } from "./onboarding-flow";
 afterEach(() => {
   cleanup();
   routerPush.mockReset();
+  routerReplace.mockReset();
 });
 
 function chooseProfile() {
@@ -57,12 +61,14 @@ describe("OnboardingFlow", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "次へ" }));
 
-    expect(screen.getByRole("alert").textContent).toContain(
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain(
       "年代を選択してください。",
     );
-    expect(screen.getByRole("alert").textContent).toContain(
+    expect(alert.textContent).toContain(
       "性別を選択してください。",
     );
+    expect(document.activeElement).toBe(alert);
   });
 
   it("preserves selected answers when moving back", async () => {
@@ -158,7 +164,8 @@ describe("OnboardingFlow", () => {
     fireEvent.click(screen.getByRole("button", { name: "次へ" }));
     fireEvent.click(screen.getByRole("button", { name: "はじめる" }));
 
-    expect(routerPush).toHaveBeenCalledWith("/");
+    expect(routerReplace).toHaveBeenCalledWith("/");
+    expect(routerPush).not.toHaveBeenCalled();
   });
 
   it("validates each remaining input step and finishes the preview flow", async () => {
