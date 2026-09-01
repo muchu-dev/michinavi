@@ -2,6 +2,7 @@ import { createSupabaseRequestContext } from "@michinavi/db";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { supabaseConnection } from "../env.backend";
+import { emergencyGuidance, shouldAttachGuidance } from "./fallback";
 
 /**
  * リクエストごとに全 procedure へ渡される値。
@@ -24,6 +25,23 @@ export type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
 
 const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
+  /**
+   * サーバ側の障害で返すエラーには、行政と気象庁への案内を必ず添える（BE-27）。
+   *
+   * 画面ごとに「落ちたときは何を出すか」を書かせると、書き漏らした画面で
+   * 何も出ない。エラー応答そのものに載せてしまえば、受け取り側が
+   * どの画面でも同じ案内を出せる。
+   */
+  errorFormatter({ shape }) {
+    if (!shouldAttachGuidance(shape.data.code)) {
+      return shape;
+    }
+
+    return {
+      ...shape,
+      data: { ...shape.data, fallback: emergencyGuidance },
+    };
+  },
 });
 
 /** router を定義する */
