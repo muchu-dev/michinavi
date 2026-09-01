@@ -408,3 +408,117 @@ values
     extensions.st_setsrid(extensions.st_makepoint(139.7708, 35.6918), 4326)::extensions.geography
   )
 on conflict (code) do nothing;
+
+-- ----------------------------------------------------------------------------
+-- 避難所（BE-14）
+-- ----------------------------------------------------------------------------
+-- **これは架空のデータである。** 実在の施設ではない。
+--
+-- 本番用の指定緊急避難場所データ（国土地理院・各自治体の公開データ）は
+-- まだ調査できていないため、開発とテストが進む分だけの架空の施設を置く。
+-- 実データが揃ったら public.import_shelters に同じ形の JSON を渡して
+-- 取り込む（external_code で突合して UPSERT する）。
+-- 架空だと分かるよう、名前は「デモ」で始め、external_code は DEMO- 接頭辞、
+-- source にもその旨を書く。
+select public.import_shelters(
+  jsonb_build_array(
+    jsonb_build_object(
+      'externalCode', 'DEMO-SHELTER-001',
+      'name', 'デモ第一小学校',
+      'nameKana', 'デモダイイチショウガッコウ',
+      'address', '岡山県倉敷市真備町箭田（架空）',
+      'areaId', '00000000-0000-4000-8000-000000000003',
+      'latitude', 34.6395,
+      'longitude', 133.6890,
+      'capacity', 300,
+      'category', 'designated_shelter',
+      'elevationM', 12.5,
+      'floors', 3,
+      'operator', 'デモ市教育委員会',
+      'source', 'デモ用の架空データ（実在の施設ではありません）',
+      'acceptances', jsonb_build_array(
+        jsonb_build_object('key', 'pet', 'status', 'limited', 'note', 'ケージ持参が条件'),
+        jsonb_build_object('key', 'wheelchair', 'status', 'available'),
+        jsonb_build_object('key', 'barrier_free_toilet', 'status', 'available'),
+        jsonb_build_object('key', 'infant', 'status', 'available'),
+        jsonb_build_object('key', 'medical_care', 'status', 'unavailable')
+      ),
+      'hazardSupports', jsonb_build_array(
+        jsonb_build_object('hazardType', 'flood', 'isSupported', true, 'note', '洪水時は2階以上'),
+        jsonb_build_object('hazardType', 'landslide', 'isSupported', true)
+      )
+    ),
+    jsonb_build_object(
+      'externalCode', 'DEMO-SHELTER-002',
+      'name', 'デモ中央公民館',
+      'address', '岡山県倉敷市真備町箭田（架空）',
+      'areaId', '00000000-0000-4000-8000-000000000003',
+      'latitude', 34.6360,
+      'longitude', 133.6935,
+      'capacity', 120,
+      'category', 'designated_shelter',
+      'elevationM', 9.0,
+      'floors', 2,
+      'source', 'デモ用の架空データ（実在の施設ではありません）',
+      'acceptances', jsonb_build_array(
+        jsonb_build_object('key', 'pet', 'status', 'unavailable'),
+        jsonb_build_object('key', 'wheelchair', 'status', 'limited', 'note', '正面のみ段差あり')
+      ),
+      'hazardSupports', jsonb_build_array(
+        jsonb_build_object('hazardType', 'flood', 'isSupported', false, 'note', '浸水想定区域内')
+      )
+    ),
+    jsonb_build_object(
+      'externalCode', 'DEMO-SHELTER-003',
+      'name', 'デモ高台公園',
+      'address', '岡山県倉敷市真備町箭田（架空）',
+      'areaId', '00000000-0000-4000-8000-000000000003',
+      'latitude', 34.6440,
+      'longitude', 133.6820,
+      'category', 'emergency_site',
+      'elevationM', 28.0,
+      'source', 'デモ用の架空データ（実在の施設ではありません）',
+      'acceptances', jsonb_build_array(
+        jsonb_build_object('key', 'pet', 'status', 'available')
+      ),
+      'hazardSupports', jsonb_build_array(
+        jsonb_build_object('hazardType', 'flood', 'isSupported', true)
+      )
+    ),
+    jsonb_build_object(
+      'externalCode', 'DEMO-SHELTER-004',
+      'name', 'デモ福祉センター',
+      'address', '岡山県倉敷市真備町川辺（架空）',
+      'areaId', '00000000-0000-4000-8000-000000000004',
+      'latitude', 34.6300,
+      'longitude', 133.7050,
+      'capacity', 60,
+      'category', 'welfare_shelter',
+      'elevationM', 8.5,
+      'floors', 2,
+      'source', 'デモ用の架空データ（実在の施設ではありません）',
+      'acceptances', jsonb_build_array(
+        jsonb_build_object('key', 'welfare', 'status', 'available'),
+        jsonb_build_object('key', 'medical_care', 'status', 'available'),
+        jsonb_build_object('key', 'power_supply', 'status', 'available'),
+        jsonb_build_object('key', 'wheelchair', 'status', 'available'),
+        jsonb_build_object('key', 'pet', 'status', 'unavailable')
+      )
+    ),
+    jsonb_build_object(
+      'externalCode', 'DEMO-SHELTER-005',
+      'name', 'デモ玉島体育館',
+      'address', '岡山県倉敷市玉島阿賀崎（架空）',
+      'areaId', '00000000-0000-4000-8000-000000000005',
+      'latitude', 34.5420,
+      'longitude', 133.6700,
+      'capacity', 400,
+      'category', 'designated_shelter',
+      'floors', 1,
+      'source', 'デモ用の架空データ（実在の施設ではありません）',
+      'acceptances', jsonb_build_array(
+        jsonb_build_object('key', 'pet', 'status', 'limited')
+      )
+    )
+  )
+);
