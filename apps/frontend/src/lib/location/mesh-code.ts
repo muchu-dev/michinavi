@@ -57,6 +57,9 @@ export function quarterMeshCodeToCenter(meshCode: string): [number, number] {
 
   // 投稿ピンは生のGPSではなく、保存されたメッシュ区画の中心へ置く。
   const digits = [...meshCode].map(Number);
+  if (digits[4] > 7 || digits[5] > 7) {
+    throw new RangeError("地域メッシュの2次区画は0から7で指定してください");
+  }
   let latitude = Number(meshCode.slice(0, 2)) / 1.5;
   let longitude = Number(meshCode.slice(2, 4)) + 100;
 

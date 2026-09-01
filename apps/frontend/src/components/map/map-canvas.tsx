@@ -6,10 +6,8 @@ import {
   CircleMarker,
   MapContainer,
   Marker,
-  Polyline,
   Popup,
   TileLayer,
-  Tooltip,
   useMap,
 } from "react-leaflet";
 import { quarterMeshCodeToCenter } from "@/lib/location/mesh-code";
@@ -17,20 +15,28 @@ import type { MapReport } from "./map-view";
 
 type LocationStatus = "idle" | "loading" | "success" | "error";
 type RoadCondition = "passable" | "caution" | "impassable";
-type ReportFeedback = "confirmed" | "inappropriate";
-type RoadRoute = {
-  condition: RoadCondition;
-  meshCode: string;
-  positions: [number, number][];
-};
 const EMPTY_REPORTS: MapReport[] = [];
+const REPORT_VALIDITY_MS = 6 * 60 * 60 * 1000;
+const MAP_COLORS = {
+  brand: "var(--brand)",
+  caution: "var(--caution)",
+  impassable: "var(--impassable)",
+  passable: "var(--passable)",
+  surface: "var(--surface)",
+} as const;
 
 export function MapCanvas({
   reports = EMPTY_REPORTS,
   center = [43.6969, 142.5104],
+  selectedPosition,
+  onPositionChange,
+  compact = false,
 }: {
   reports?: MapReport[];
   center?: [number, number];
+  selectedPosition?: [number, number] | null;
+  onPositionChange?: (position: [number, number]) => void;
+  compact?: boolean;
 }) {
   const [currentPosition, setCurrentPosition] = useState<
     [number, number] | null
@@ -41,14 +47,6 @@ export function MapCanvas({
   );
   const locationWatchId = useRef<number | null>(null);
   const reportGroups = useMemo(() => groupReportsByMesh(reports), [reports]);
-  const [roadRoutes, setRoadRoutes] = useState<RoadRoute[]>([]);
-  const [feedbackByReportId, setFeedbackByReportId] = useState<
-    Record<string, ReportFeedback>
-  >({});
-  // GPSの細かな揺れでOSRMへ連続問い合わせしないよう、約100m単位で再計算する。
-  const routeOriginKey = currentPosition
-    ? `${currentPosition[0].toFixed(3)},${currentPosition[1].toFixed(3)}`
-    : null;
 
   const watchCurrentPosition = useCallback(() => {
     if (!("geolocation" in navigator)) {
@@ -65,7 +63,9 @@ export function MapCanvas({
     // 位置が更新されるたびにピンと地図中心を追従させる。
     locationWatchId.current = navigator.geolocation.watchPosition(
       ({ coords }) => {
-        setCurrentPosition([coords.latitude, coords.longitude]);
+        const position: [number, number] = [coords.latitude, coords.longitude];
+        setCurrentPosition(position);
+        onPositionChange?.(position);
         setLocationStatus("success");
         setLocationMessage("現在地を追跡しています");
       },
@@ -84,7 +84,7 @@ export function MapCanvas({
         maximumAge: 60_000,
       },
     );
-  }, []);
+  }, [onPositionChange]);
 
   useEffect(() => {
     if (!("permissions" in navigator)) return;
@@ -121,47 +121,13 @@ export function MapCanvas({
     [],
   );
 
-  useEffect(() => {
-    if (!routeOriginKey || reportGroups.length === 0) {
-      setRoadRoutes([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const routeOrigin = routeOriginKey.split(",").map(Number) as [
-      number,
-      number,
-    ];
-    // 一部の経路取得だけが失敗しても、取得できた経路は地図へ表示する。
-    Promise.allSettled(
-      reportGroups.map(async (group) => ({
-        meshCode: group.meshCode,
-        condition: getGroupCondition(group.reports),
-        positions: await getRoadRoute(
-          routeOrigin,
-          quarterMeshCodeToCenter(group.meshCode),
-          controller.signal,
-        ),
-      })),
-    ).then((results) => {
-      if (controller.signal.aborted) return;
-      setRoadRoutes(
-        results.flatMap((result) =>
-          result.status === "fulfilled" ? [result.value] : [],
-        ),
-      );
-    });
-
-    return () => controller.abort();
-  }, [routeOriginKey, reportGroups]);
-
   return (
     <>
       <MapContainer
         center={center}
         zoom={15}
         scrollWheelZoom={false}
-        className="absolute inset-0 h-full min-h-[30rem] w-full"
+        className={`absolute inset-0 h-full w-full ${compact ? "min-h-full" : "min-h-[30rem]"}`}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -170,47 +136,43 @@ export function MapCanvas({
         {reportGroups.map((group) => (
           <Marker
             key={group.meshCode}
-            position={quarterMeshCodeToCenter(group.meshCode)}
-            icon={createReportIcon(group.reports.length)}
+            position={group.center}
+            icon={createReportIcon(
+              group.reports.length,
+              getGroupCondition(group.reports),
+            )}
           >
             <Popup>
-              <ReportGroupDetails
-                reports={group.reports}
-                feedbackByReportId={feedbackByReportId}
-                onFeedback={(reportId, feedback) =>
-                  setFeedbackByReportId((current) => ({
-                    ...current,
-                    [reportId]: feedback,
-                  }))
-                }
-              />
+              <ReportGroupDetails reports={group.reports} />
             </Popup>
-            <Tooltip direction="top" offset={[0, -44]}>
-              <ReportGroupDetails reports={group.reports} compact />
-            </Tooltip>
           </Marker>
         ))}
-        {roadRoutes.map((route) => (
-          <Polyline
-            key={`route-${route.meshCode}`}
-            positions={route.positions}
-            pathOptions={getRouteStyle(route.condition)}
-          >
-            <Tooltip sticky>
-              現在地から投稿地点への推定経路：
-              {getReportLabel(route.condition)}
-            </Tooltip>
-          </Polyline>
-        ))}
+        {selectedPosition ? (
+          <>
+            <MoveMapToPosition position={selectedPosition} />
+            <CircleMarker
+              center={selectedPosition}
+              radius={12}
+              pathOptions={{
+                color: MAP_COLORS.surface,
+                fillColor: MAP_COLORS.brand,
+                fillOpacity: 1,
+                weight: 4,
+              }}
+            >
+              <Popup>今回の投稿地点</Popup>
+            </CircleMarker>
+          </>
+        ) : null}
         {currentPosition ? (
           <>
-            <MoveMapToCurrentPosition position={currentPosition} />
+            <MoveMapToPosition position={currentPosition} />
             <CircleMarker
               center={currentPosition}
               radius={9}
               pathOptions={{
-                color: "#ffffff",
-                fillColor: "#3f7edb",
+                color: MAP_COLORS.surface,
+                fillColor: MAP_COLORS.brand,
                 fillOpacity: 1,
                 weight: 4,
               }}
@@ -260,73 +222,25 @@ function getGroupCondition(reports: MapReport[]): RoadCondition {
     : "passable";
 }
 
-function getRouteStyle(condition: RoadCondition) {
-  if (condition === "impassable") {
-    return { color: "#c7362a", opacity: 0.95, weight: 6 };
-  }
-  if (condition === "caution") {
-    return {
-      color: "#f0a92e",
-      dashArray: "4 9",
-      lineCap: "round" as const,
-      opacity: 0.95,
-      weight: 6,
-    };
-  }
-  return { color: "#2e5d4e", opacity: 0.95, weight: 6 };
-}
-
-async function getRoadRoute(
-  origin: [number, number],
-  destination: [number, number],
-  signal: AbortSignal,
-) {
-  // OSRMは「経度,緯度」、Leafletは「緯度,経度」なので入出力時に順序を変える。
-  const coordinates = `${origin[1]},${origin[0]};${destination[1]},${destination[0]}`;
-  const response = await fetch(
-    `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`,
-    { signal },
-  );
-  if (!response.ok) throw new Error("道路経路を取得できませんでした");
-
-  const data: {
-    code: string;
-    routes?: Array<{ geometry?: { coordinates?: [number, number][] } }>;
-  } = await response.json();
-  const coordinatesOnRoad = data.routes?.[0]?.geometry?.coordinates;
-  if (data.code !== "Ok" || !coordinatesOnRoad?.length) {
-    throw new Error("道路経路を計算できませんでした");
-  }
-
-  return coordinatesOnRoad.map(
-    ([longitude, latitude]) => [latitude, longitude] as [number, number],
-  );
-}
-
-function createReportIcon(count: number) {
+function createReportIcon(count: number, condition: RoadCondition) {
   // 同一メッシュの投稿を1本の吹き出しピンにまとめ、右上へ件数を表示する。
   const countLabel = count > 99 ? "99+" : String(count);
+  const color =
+    condition === "passable"
+      ? MAP_COLORS.passable
+      : condition === "caution"
+        ? MAP_COLORS.caution
+        : MAP_COLORS.impassable;
   return divIcon({
     className: "bg-transparent border-0",
-    html: `<svg aria-label="${count}件の投稿" role="img" viewBox="0 0 64 64" width="52" height="52"><path d="M9 9h39a6 6 0 0 1 6 6v27a6 6 0 0 1-6 6H25L13 58V48H9a6 6 0 0 1-6-6V15a6 6 0 0 1 6-6Z" fill="white" stroke="#597ebf" stroke-width="3" stroke-linejoin="round"/><path d="M15 22h27M15 30h27M15 38h18" fill="none" stroke="#597ebf" stroke-width="3" stroke-linecap="round"/><circle cx="51" cy="12" r="11" fill="#597ebf" stroke="white" stroke-width="2"/><text x="51" y="15.5" fill="white" font-family="system-ui,sans-serif" font-size="10" font-weight="800" text-anchor="middle">${countLabel}</text></svg>`,
+    html: `<svg aria-label="${count}件の投稿" role="img" viewBox="0 0 64 64" width="52" height="52"><path d="M9 9h39a6 6 0 0 1 6 6v27a6 6 0 0 1-6 6H25L13 58V48H9a6 6 0 0 1-6-6V15a6 6 0 0 1 6-6Z" fill="${MAP_COLORS.surface}" stroke="${color}" stroke-width="3" stroke-linejoin="round"/><path d="M15 22h27M15 30h27M15 38h18" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/><circle cx="51" cy="12" r="11" fill="${color}" stroke="${MAP_COLORS.surface}" stroke-width="2"/><text x="51" y="15.5" fill="${MAP_COLORS.surface}" font-family="system-ui,sans-serif" font-size="10" font-weight="800" text-anchor="middle">${countLabel}</text></svg>`,
     iconSize: [52, 52],
     iconAnchor: [13, 50],
     popupAnchor: [13, -46],
   });
 }
 
-function ReportGroupDetails({
-  reports,
-  compact = false,
-  feedbackByReportId = {},
-  onFeedback,
-}: {
-  reports: MapReport[];
-  compact?: boolean;
-  feedbackByReportId?: Record<string, ReportFeedback>;
-  onFeedback?: (reportId: string, feedback: ReportFeedback) => void;
-}) {
-  // 確認・不適切の選択はDB未対応のため、この画面を開いている間だけ保持される。
+function ReportGroupDetails({ reports }: { reports: MapReport[] }) {
   return (
     <div className="grid min-w-48 gap-2">
       <strong>{reports.length}件の投稿</strong>
@@ -344,28 +258,6 @@ function ReportGroupDetails({
                 timeZone: "Asia/Tokyo",
               }).format(new Date(report.createdAt))}
             </time>
-            {!compact && onFeedback ? (
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  aria-pressed={feedbackByReportId[report.id] === "confirmed"}
-                  onClick={() => onFeedback(report.id, "confirmed")}
-                  className="min-h-7 rounded-md bg-[#dce9ff] px-2 text-[0.6875rem] font-bold text-[#416cad] aria-pressed:bg-[#8eb5f5] aria-pressed:text-white"
-                >
-                  ✓ 確認済み
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={
-                    feedbackByReportId[report.id] === "inappropriate"
-                  }
-                  onClick={() => onFeedback(report.id, "inappropriate")}
-                  className="min-h-7 rounded-md bg-[#eceeef] px-2 text-[0.6875rem] font-bold text-[#8b9298] aria-pressed:bg-[#c7362a] aria-pressed:text-white"
-                >
-                  不適切な投稿
-                </button>
-              </div>
-            ) : null}
           </li>
         ))}
       </ul>
@@ -377,31 +269,40 @@ function ReportGroupDetails({
 }
 
 function groupReportsByMesh(reports: MapReport[]) {
-  // 同じ250mメッシュの投稿をまとめ、詳細では新しい投稿から表示する。
+  // 有効期限内の投稿だけを同じ250mメッシュごとにまとめる。
   const groups = new Map<string, MapReport[]>();
+  const oldestValidTime = Date.now() - REPORT_VALIDITY_MS;
   for (const report of reports) {
+    if (Date.parse(report.createdAt) < oldestValidTime) continue;
     const group = groups.get(report.meshCode) ?? [];
     group.push(report);
     groups.set(report.meshCode, group);
   }
 
-  return [...groups].map(([meshCode, groupedReports]) => ({
-    meshCode,
-    reports: groupedReports.sort(
-      (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt),
-    ),
-  }));
+  return [...groups].flatMap(([meshCode, groupedReports]) => {
+    try {
+      return [
+        {
+          center: quarterMeshCodeToCenter(meshCode),
+          meshCode,
+          reports: groupedReports.sort(
+            (left, right) =>
+              Date.parse(right.createdAt) - Date.parse(left.createdAt),
+          ),
+        },
+      ];
+    } catch {
+      // APIデータに不正なメッシュが混ざっても、地図全体を壊さず該当投稿だけ除外する。
+      return [];
+    }
+  });
 }
 
-function MoveMapToCurrentPosition({
-  position,
-}: {
-  position: [number, number];
-}) {
+function MoveMapToPosition({ position }: { position: [number, number] }) {
   const map = useMap();
 
   useEffect(() => {
-    // watchPositionで受け取った最新座標を常に地図の中心へ移す。
+    // 現在地または投稿地点が更新されたら地図の中心へ移す。
     map.setView(position, 16);
   }, [map, position]);
 

@@ -18,4 +18,8 @@ describe("toQuarterMeshCode", () => {
     expect(Math.abs(latitude - 34.6383)).toBeLessThan(0.002);
     expect(Math.abs(longitude - 133.6903)).toBeLessThan(0.002);
   });
+
+  it("rejects an out-of-range secondary mesh digit", () => {
+    expect(() => quarterMeshCodeToCenter("5133889911")).toThrow(RangeError);
+  });
 });

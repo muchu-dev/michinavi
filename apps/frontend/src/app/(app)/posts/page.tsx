@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { MapView } from "@/components/map/map-view";
 import { toQuarterMeshCode } from "@/lib/location/mesh-code";
 import { api } from "@/lib/trpc/client";
@@ -11,7 +11,7 @@ const REPORT_REGION = {
 };
 
 // 道路の通行状態を表す画面内の選択値
-type RoadCondition = "passable" | "caution" | "blocked";
+type RoadCondition = "passable" | "caution" | "impassable";
 // 注意・通行不可の原因として選択できる状態種別
 type HazardType =
   | "flood"
@@ -34,47 +34,43 @@ const hazards: ReadonlyArray<{ type: HazardType; label: string }> = [
 export default function PostsPage() {
   const [view, setView] = useState<"map" | "report">("map");
   const [condition, setCondition] = useState<RoadCondition | null>(null);
-  const [expanded, setExpanded] = useState<"caution" | "blocked" | null>(null);
+  const [expanded, setExpanded] = useState<"caution" | "impassable" | null>(
+    null,
+  );
   const [hazard, setHazard] = useState<HazardType | null>(null);
-  const [showBody, setShowBody] = useState(false);
-  const [body, setBody] = useState("");
-  const [photoName, setPhotoName] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [draftPosition, setDraftPosition] = useState<[number, number] | null>(
+    null,
+  );
+  const [mapPosition, setMapPosition] = useState<[number, number] | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // DBから道路投稿を取得し、投稿成功後に同じキャッシュを再取得する。
+  const nearbyMeshPrefix = toQuarterMeshCode(
+    ...(mapPosition ?? REPORT_REGION.center),
+  ).slice(0, 6);
   const reportList = api.fieldReport.list.useQuery({ limit: 100 });
   const apiUtils = api.useUtils();
   const createReport = api.fieldReport.create.useMutation();
   const visibleReports = (reportList.data ?? []).flatMap((report) =>
-    report.roadCondition
+    report.roadCondition && report.meshCode.startsWith(nearbyMeshPrefix)
       ? [{ ...report, roadCondition: report.roadCondition }]
       : [],
   );
+  const displayedRegionName = mapPosition
+    ? "取得した現在地周辺"
+    : REPORT_REGION.name;
 
-  useEffect(() => {
-    // 投稿フォームではアプリ共通ヘッダーを隠し、入力領域を確保する。
-    const appHeader =
-      document.getElementById("main-content")?.previousElementSibling;
-    if (!(appHeader instanceof HTMLElement)) return;
-    const originalDisplay = appHeader.style.display;
-    appHeader.style.display = view === "report" ? "none" : originalDisplay;
-    return () => {
-      appHeader.style.display = originalDisplay;
-    };
-  }, [view]);
-
+  // 通行状態の選択を切り替えるための関数。
   const chooseCondition = (next: RoadCondition) => {
-    setSubmitted(false);
     setSubmitError(null);
     if (next === "passable") {
       setCondition("passable");
       setExpanded(null);
-      setHazard(null);
       return;
     }
+    setCondition(next);
     setExpanded((current) => (current === next ? null : next));
-    setCondition(null);
     setHazard(null);
   };
 
@@ -83,15 +79,45 @@ export default function PostsPage() {
     if (!expanded) return;
     setCondition(expanded);
     setHazard(type);
-    setSubmitted(false);
+    setExpanded(null);
     setSubmitError(null);
   };
 
+  // 選択済みの通行状態を保ったまま原因一覧の開閉だけを切り替える関数。
+  const toggleHazardChoices = (target: "caution" | "impassable") => {
+    setExpanded((current) => (current === target ? null : target));
+  };
+
   // 現在の選択内容で投稿可能かを判定する値
-  const canSubmit =
-    condition === "passable" ||
-    (condition === "caution" && hazard !== null) ||
-    (condition === "blocked" && hazard !== null);
+  const canSubmit = condition !== null;
+
+  // 地図を残したまま投稿フォームを開き、投稿対象地点を確定する関数。
+  const openReportForm = async () => {
+    setSuccessMessage(null);
+    setSubmitError(null);
+    setView("report");
+    try {
+      const position = await getCurrentPosition();
+      const coordinates: [number, number] = [
+        position.coords.latitude,
+        position.coords.longitude,
+      ];
+      setDraftPosition(coordinates);
+      setMapPosition(coordinates);
+    } catch (error) {
+      setSubmitError(getSubmitErrorMessage(error));
+    }
+  };
+
+  // 投稿をキャンセルして入力状態を破棄し、地図画面へ戻る関数。
+  const closeReportForm = () => {
+    setCondition(null);
+    setExpanded(null);
+    setHazard(null);
+    setDraftPosition(null);
+    setSubmitError(null);
+    setView("map");
+  };
 
   // 投稿ボタン押下時に入力を検証し、完了後に地図へ戻す関数
   const submitReport = async (event: FormEvent<HTMLFormElement>) => {
@@ -99,29 +125,26 @@ export default function PostsPage() {
     if (!canSubmit || !condition || isSubmitting) return;
 
     setIsSubmitting(true);
-    setSubmitted(false);
     setSubmitError(null);
 
     try {
-      const position = await getCurrentPosition();
+      const position = draftPosition ?? (await getCurrentPosition()).coords;
       // 正確なGPS座標は送らず、約250mのメッシュコードだけを投稿APIへ渡す。
       const meshCode = toQuarterMeshCode(
-        position.coords.latitude,
-        position.coords.longitude,
+        "latitude" in position ? position.latitude : position[0],
+        "longitude" in position ? position.longitude : position[1],
       );
       await createReport.mutateAsync({
         meshCode,
-        roadCondition: condition === "blocked" ? "impassable" : condition,
+        roadCondition: condition,
       });
       await apiUtils.fieldReport.list.invalidate();
 
-      setSubmitted(true);
+      setSuccessMessage("投稿しました");
       setCondition(null);
       setExpanded(null);
       setHazard(null);
-      setShowBody(false);
-      setBody("");
-      setPhotoName("");
+      setDraftPosition(null);
       setView("map");
     } catch (error) {
       setSubmitError(getSubmitErrorMessage(error));
@@ -140,41 +163,60 @@ export default function PostsPage() {
         <div className="relative z-[600] border-b border-outline bg-surface px-4 py-3 shadow-card">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-bold text-brand">現在地周辺</p>
+              <p className="text-xs font-bold text-brand">
+                {mapPosition ? "現在地周辺" : "表示地域"}
+              </p>
               <h1
                 id="posts-map-title"
                 className="mt-0.5 text-xl font-black text-ink"
               >
-                {REPORT_REGION.name}
+                {displayedRegionName}
               </h1>
             </div>
             <p className="pt-1 text-right text-[0.6875rem] font-bold text-muted">
-              9:41更新
+              {formatUpdatedAt(reportList.dataUpdatedAt)}更新
               <br />
-              投稿24件
+              投稿{visibleReports.length}件
             </p>
           </div>
           <p className="mt-2 inline-flex min-h-8 items-center rounded-lg bg-caution-soft px-3 py-1 text-xs font-black text-caution-ink">
-            警戒レベル4　避難指示発令中
+            （サンプル）警戒情報
           </p>
         </div>
+
+        {successMessage ? (
+          <output className="relative z-[600] bg-passable px-4 py-2 text-center text-xs font-black text-white">
+            {successMessage}
+          </output>
+        ) : null}
+        {reportList.isError ? (
+          <p
+            role="alert"
+            className="relative z-[600] bg-impassable px-4 py-2 text-center text-xs font-black text-white"
+          >
+            投稿一覧を取得できませんでした。再読み込みしてください。
+          </p>
+        ) : null}
+        {reportList.isPending ? (
+          <output className="relative z-[600] bg-surface px-4 py-2 text-center text-xs font-bold text-muted">
+            投稿一覧を読み込んでいます
+          </output>
+        ) : null}
 
         {/* 現在地周辺と既存の道路情報を表示する地図。 */}
         <MapView
           center={REPORT_REGION.center}
-          regionName={REPORT_REGION.name}
+          regionName={displayedRegionName}
           reports={visibleReports}
+          onPositionChange={setMapPosition}
         />
 
         {/* 道路状況の入力画面を開くボタン。 */}
         <div className="absolute inset-x-3 bottom-3 z-[700]">
           <button
             type="button"
-            onClick={() => {
-              setSubmitted(false);
-              setView("report");
-            }}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#597EBF] px-4 text-xs font-black text-white shadow-[0_8px_20px_rgb(35_62_104/0.22)]"
+            onClick={openReportForm}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-xs font-black text-white shadow-card"
           >
             <PinIcon />
             この道の状況を報告する
@@ -191,16 +233,41 @@ export default function PostsPage() {
       aria-labelledby="posts-title"
       onSubmit={submitReport}
     >
-      <header className="flex min-h-12 shrink-0 items-center justify-center gap-2 bg-[#597EBF] px-4 text-white">
-        <PinIcon />
-        <h1 id="posts-title" className="text-xs font-black">
-          この道の状況を報告する
-        </h1>
+      <header className="flex min-h-12 shrink-0 items-center bg-brand px-4 text-white">
+        <button
+          type="button"
+          onClick={closeReportForm}
+          className="min-h-10 rounded-lg px-2 text-xs font-black"
+        >
+          ← 戻る
+        </button>
+        <span className="ml-auto flex items-center gap-2">
+          <PinIcon />
+          <h1 id="posts-title" className="text-xs font-black">
+            この道の状況を報告する
+          </h1>
+        </span>
+        <span className="ml-auto w-12" aria-hidden="true" />
       </header>
+
+      <div className="min-h-52 shrink-0 border-b border-outline">
+        <MapView
+          center={REPORT_REGION.center}
+          compact
+          regionName={displayedRegionName}
+          reports={visibleReports}
+          selectedPosition={draftPosition}
+          onPositionChange={setMapPosition}
+        />
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-3">
         {/* 通れる・注意が必要・通れないの選択欄。 */}
-        <div className="space-y-2.5">
+        <div
+          className="space-y-2.5"
+          role="radiogroup"
+          aria-label="道路の通行状態"
+        >
           <ConditionCard
             condition="passable"
             label="通れる"
@@ -212,8 +279,10 @@ export default function PostsPage() {
             condition="caution"
             label="注意が必要"
             selected={condition === "caution"}
+            selectedHazard={condition === "caution" ? hazard : null}
             expanded={expanded === "caution"}
             onClick={() => chooseCondition("caution")}
+            onToggleExpanded={() => toggleHazardChoices("caution")}
           >
             <HazardChoices
               selected={hazard}
@@ -223,75 +292,44 @@ export default function PostsPage() {
           </ConditionCard>
 
           <ConditionCard
-            condition="blocked"
+            condition="impassable"
             label="通れない"
-            selected={condition === "blocked"}
-            expanded={expanded === "blocked"}
-            onClick={() => chooseCondition("blocked")}
+            selected={condition === "impassable"}
+            selectedHazard={condition === "impassable" ? hazard : null}
+            expanded={expanded === "impassable"}
+            onClick={() => chooseCondition("impassable")}
+            onToggleExpanded={() => toggleHazardChoices("impassable")}
           >
             <HazardChoices
               selected={hazard}
-              color="blocked"
+              color="impassable"
               onSelect={chooseHazard}
             />
           </ConditionCard>
         </div>
+
+        <p className="mt-2 text-[0.6875rem] font-bold text-muted">
+          原因の選択は任意です。現在DBに保存されるのは通行状態と投稿地点のメッシュのみです。
+        </p>
       </div>
 
-      {/* 任意項目と投稿ボタンをまとめた画面下部の操作欄。 */}
+      {/* 投稿処理とエラー表示をまとめた画面下部の操作欄。 */}
       <div className="shrink-0 space-y-2 bg-white px-3 pb-3 pt-2">
-        {showBody && (
-          <label className="block">
-            <span className="sr-only">文章を追加</span>
-            <textarea
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-              rows={2}
-              maxLength={400}
-              placeholder="道路の状況を入力（任意）"
-              className="w-full resize-none rounded-lg border border-[#909EB8] px-3 py-2 text-xs text-ink outline-none focus:border-[#597EBF] focus:ring-2 focus:ring-[#C7DCFF]"
-            />
-          </label>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setShowBody((current) => !current)}
-          className={`min-h-10 w-full rounded-lg text-xs font-black text-white ${showBody ? "bg-[#597EBF]" : "bg-[#a6abb0]"}`}
-        >
-          {showBody ? "文章を閉じる" : "文章を追加"}
-        </button>
-
-        <label
-          className={`flex min-h-10 w-full cursor-pointer items-center justify-center rounded-lg text-xs font-black text-white ${photoName ? "bg-[#597EBF]" : "bg-[#a6abb0]"}`}
-        >
-          <input
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={(event) =>
-              // Storage連携前のため、現時点では選択したファイル名だけを保持する。
-              setPhotoName(event.target.files?.[0]?.name ?? "")
-            }
-          />
-          {photoName || "写真を追加"}
-        </label>
-
         <button
           type="submit"
           disabled={!canSubmit || isSubmitting}
           className={`min-h-12 w-full rounded-lg border text-xs font-black transition-colors ${
             canSubmit && !isSubmitting
-              ? "border-[#597EBF] bg-[#597EBF] text-white"
-              : "border-[#597EBF] bg-white text-[#597EBF]"
+              ? "border-brand bg-brand text-white"
+              : "border-brand bg-white text-brand"
           }`}
         >
-          {isSubmitting ? "送信中..." : submitted ? "投稿しました" : "投稿する"}
+          {isSubmitting ? "送信中..." : "投稿する"}
         </button>
         {submitError ? (
           <p
             aria-live="polite"
-            className="text-center text-xs font-bold text-[#C7362A]"
+            className="text-center text-xs font-bold text-impassable"
             role="alert"
           >
             {submitError}
@@ -338,10 +376,20 @@ function getSubmitErrorMessage(error: unknown) {
     "code" in error.data &&
     error.data.code === "UNAUTHORIZED"
   ) {
-    return "DBに保存するにはログインが必要です。認証バイパスを無効にしてログインしてください。";
+    return "投稿にはログインが必要です。開発環境では開発用ログイン設定を確認してください。";
   }
   if (error instanceof Error && error.message) return error.message;
   return "投稿を保存できませんでした。時間をおいてもう一度お試しください。";
+}
+
+// 投稿一覧を最後に取得した時刻を日本時間で表示する関数。
+function formatUpdatedAt(updatedAt: number) {
+  if (!updatedAt) return "--:--";
+  return new Intl.DateTimeFormat("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Tokyo",
+  }).format(new Date(updatedAt));
 }
 
 // 通行状態ごとの大きな選択カードを表示する関数。
@@ -349,48 +397,72 @@ function ConditionCard({
   condition,
   label,
   selected,
+  selectedHazard = null,
   expanded = false,
   onClick,
+  onToggleExpanded,
   children,
 }: {
   condition: RoadCondition;
   label: string;
   selected: boolean;
+  selectedHazard?: HazardType | null;
   expanded?: boolean;
   onClick: () => void;
+  onToggleExpanded?: () => void;
   children?: ReactNode;
 }) {
-  const color =
+  const colorClass =
     condition === "passable"
-      ? "#2E5D4E"
+      ? "border-passable bg-passable"
       : condition === "caution"
-        ? "#F0A92E"
-        : "#C7362A";
+        ? "border-caution bg-caution"
+        : "border-impassable bg-impassable";
   return (
     <section
-      className="overflow-hidden rounded-xl border-2 bg-white transition-colors"
-      style={{ borderColor: expanded ? color : "transparent" }}
+      className={`overflow-hidden rounded-xl border-2 bg-white transition-colors ${expanded ? colorClass : "border-transparent"}`}
     >
-      <button
-        type="button"
-        aria-expanded={children ? expanded : undefined}
-        aria-pressed={selected}
-        onClick={onClick}
-        className="flex min-h-[4.5rem] w-full items-center gap-5 px-5 text-white"
-        style={{ backgroundColor: color }}
+      <div
+        className={`flex min-h-[4.5rem] items-center text-white ${colorClass}`}
       >
-        <ConditionIcon condition={condition} />
-        <span className="text-base font-black">{label}</span>
+        <label className="flex min-h-[4.5rem] min-w-0 flex-1 cursor-pointer items-center gap-5 px-5 has-focus-visible:outline-2 has-focus-visible:outline-offset-[-4px] has-focus-visible:outline-white">
+          <input
+            type="radio"
+            name="road-condition"
+            value={condition}
+            checked={selected}
+            onChange={onClick}
+            className="sr-only"
+          />
+          <ConditionIcon condition={condition} />
+          <span className="text-base font-black">{label}</span>
+          {selectedHazard ? (
+            <span className="ml-auto grid size-10 place-items-center rounded-lg bg-brand text-white">
+              <span className="sr-only">
+                {hazards.find((item) => item.type === selectedHazard)?.label}
+              </span>
+              <HazardIcon type={selectedHazard} />
+            </span>
+          ) : null}
+        </label>
         {condition !== "passable" && (
-          <svg
-            viewBox="0 0 24 24"
-            className={`ml-auto size-5 fill-none stroke-current stroke-2.5 transition-transform ${expanded ? "rotate-90" : ""}`}
-            aria-hidden="true"
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-label={`${label}の原因一覧を${expanded ? "閉じる" : "開く"}`}
+            onClick={onToggleExpanded}
+            className="grid min-h-[4.5rem] w-12 shrink-0 place-items-center focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white"
           >
-            <path d="m9 5 7 7-7 7" />
-          </svg>
+            <svg
+              viewBox="0 0 24 24"
+              className={`size-5 fill-none stroke-current stroke-[2.5] transition-transform ${expanded ? "rotate-90" : ""}`}
+              aria-hidden="true"
+            >
+              <path d="m9 5 7 7-7 7" />
+            </svg>
+          </button>
         )}
-      </button>
+      </div>
       {expanded && children}
     </section>
   );
@@ -403,36 +475,38 @@ function HazardChoices({
   onSelect,
 }: {
   selected: HazardType | null;
-  color: "caution" | "blocked";
+  color: "caution" | "impassable";
   onSelect: (type: HazardType) => void;
 }) {
-  const selectedColor = color === "caution" ? "#597EBF" : "#C7362A";
+  const selectedColor = color === "caution" ? "bg-brand" : "bg-impassable";
   return (
     <fieldset className="px-2.5 pb-2.5 pt-2">
-      <legend className="sr-only">道路の状態を選択</legend>
+      <legend className="sr-only">道路状況の原因（任意）</legend>
       <div className="grid grid-cols-3 gap-x-2 gap-y-2">
         {hazards.map((item) => {
           const isSelected = selected === item.type;
           return (
-            <button
+            <label
               key={item.type}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => onSelect(item.type)}
-              className="group min-w-0 text-center"
+              className="group min-w-0 cursor-pointer text-center has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-brand"
             >
+              <input
+                type="radio"
+                name="road-hazard"
+                value={item.type}
+                checked={isSelected}
+                onChange={() => onSelect(item.type)}
+                className="sr-only"
+              />
               <span className="mb-1 block truncate text-[0.6875rem] font-black text-ink">
                 {item.label}
               </span>
               <span
-                className="mx-auto grid aspect-square w-full max-w-14 place-items-center rounded-lg text-white transition-colors"
-                style={{
-                  backgroundColor: isSelected ? selectedColor : "#a6abb0",
-                }}
+                className={`mx-auto grid aspect-square w-full max-w-14 place-items-center rounded-lg text-white transition-colors ${isSelected ? selectedColor : "bg-muted"}`}
               >
                 <HazardIcon type={item.type} />
               </span>
-            </button>
+            </label>
           );
         })}
       </div>
@@ -452,7 +526,7 @@ function ConditionIcon({ condition }: { condition: RoadCondition }) {
         <path d="m9 25 10 10L40 13" />
       </svg>
     );
-  if (condition === "blocked")
+  if (condition === "impassable")
     return (
       <svg
         viewBox="0 0 48 48"
@@ -525,7 +599,7 @@ function PinIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="size-5 fill-none stroke-current stroke-2.5"
+      className="size-5 fill-none stroke-current stroke-[2.5]"
       aria-hidden="true"
     >
       <path d="M12 21s6-5.4 6-11a6 6 0 1 0-12 0c0 5.6 6 11 6 11Z" />

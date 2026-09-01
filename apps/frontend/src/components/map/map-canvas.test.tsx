@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { setView } = vi.hoisted(() => ({ setView: vi.fn() }));
 
@@ -18,31 +18,18 @@ vi.mock("react-leaflet", () => ({
   CircleMarker: ({ children }: PropsWithChildren) => (
     <div data-testid="map-marker">{children}</div>
   ),
-  MapContainer: ({ children }: PropsWithChildren) => (
-    <div data-testid="leaflet-map">{children}</div>
+  MapContainer: ({
+    children,
+    className,
+  }: PropsWithChildren<{ className?: string }>) => (
+    <div className={className} data-testid="leaflet-map">
+      {children}
+    </div>
   ),
   Marker: ({ children }: PropsWithChildren) => (
     <div data-testid="report-marker">{children}</div>
   ),
-  Polyline: ({
-    children,
-    pathOptions,
-    positions,
-  }: PropsWithChildren<{
-    pathOptions: { color: string; dashArray?: string };
-    positions: [number, number][];
-  }>) => (
-    <div
-      data-color={pathOptions.color}
-      data-dash-array={pathOptions.dashArray}
-      data-point-count={positions.length}
-      data-testid="map-route"
-    >
-      {children}
-    </div>
-  ),
   Popup: ({ children }: PropsWithChildren) => <div>{children}</div>,
-  Tooltip: ({ children }: PropsWithChildren) => <div>{children}</div>,
   TileLayer: ({ attribution, url }: { attribution: string; url: string }) => (
     <div
       data-attribution={attribution}
@@ -58,7 +45,14 @@ import { MapCanvas } from "./map-canvas";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   setView.mockClear();
+});
+
+beforeEach(() => {
+  vi.spyOn(Date, "now").mockReturnValue(
+    new Date("2026-08-29T02:00:00.000Z").getTime(),
+  );
 });
 
 describe("MapCanvas", () => {
@@ -74,7 +68,14 @@ describe("MapCanvas", () => {
     ).toContain("OpenStreetMap");
   });
 
-  it("renders report markers and their hover details from API data", () => {
+  it("uses the compact map height without clipping map controls", () => {
+    render(<MapCanvas compact />);
+
+    expect(screen.getByTestId("leaflet-map").className).toContain("min-h-full");
+    expect(screen.getByTestId("map-tiles")).toBeTruthy();
+  });
+
+  it("renders recent report markers and popup details from API data", () => {
     render(
       <MapCanvas
         reports={[
@@ -98,25 +99,44 @@ describe("MapCanvas", () => {
     expect(screen.queryAllByTestId("map-route")).toHaveLength(0);
     expect(screen.queryAllByTestId("map-marker")).toHaveLength(0);
     expect(screen.queryByText("現在地（デモ）")).toBeNull();
-    expect(screen.getAllByText("2件の投稿")).toHaveLength(2);
-    expect(screen.getAllByText("通行不可")).toHaveLength(2);
-    expect(screen.getAllByText("注意")).toHaveLength(2);
-    expect(screen.getAllByText(/2026\/08\/29/)).toHaveLength(4);
+    expect(screen.getByText("2件の投稿")).toBeTruthy();
+    expect(screen.getByText("通行不可")).toBeTruthy();
+    expect(screen.getByText("注意")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "✓ 確認済み" })).toBeNull();
+  });
 
-    const confirmedButtons = screen.getAllByRole("button", {
-      name: "✓ 確認済み",
-    });
-    const inappropriateButtons = screen.getAllByRole("button", {
-      name: "不適切な投稿",
-    });
-    fireEvent.click(confirmedButtons[0] as HTMLButtonElement);
-    expect(confirmedButtons[0]?.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(inappropriateButtons[0] as HTMLButtonElement);
-    expect(confirmedButtons[0]?.getAttribute("aria-pressed")).toBe("false");
-    expect(inappropriateButtons[0]?.getAttribute("aria-pressed")).toBe("true");
+  it("ignores expired reports and invalid mesh codes", () => {
+    render(
+      <MapCanvas
+        reports={[
+          {
+            id: "expired",
+            meshCode: "5133756531",
+            roadCondition: "caution",
+            createdAt: "2026-08-28T19:59:59.000Z",
+          },
+          {
+            id: "invalid",
+            meshCode: "5133889911",
+            roadCondition: "impassable",
+            createdAt: "2026-08-29T01:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.queryAllByTestId("report-marker")).toHaveLength(0);
+  });
+
+  it("moves the map to the selected report position", () => {
+    render(<MapCanvas selectedPosition={[35.6812, 139.7671]} />);
+
+    expect(setView).toHaveBeenCalledWith([35.6812, 139.7671], 16);
+    expect(screen.getByText("今回の投稿地点")).toBeTruthy();
   });
 
   it("starts tracking on user action and renders the acquired current position", async () => {
+    const onPositionChange = vi.fn();
     const watchPosition = vi.fn((success: PositionCallback) => {
       success({
         coords: { latitude: 35.6812, longitude: 139.7671 },
@@ -127,7 +147,7 @@ describe("MapCanvas", () => {
       geolocation: { watchPosition, clearWatch: vi.fn() },
     });
 
-    render(<MapCanvas />);
+    render(<MapCanvas onPositionChange={onPositionChange} />);
     expect(watchPosition).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "現在地を追跡" }));
@@ -141,6 +161,7 @@ describe("MapCanvas", () => {
       "現在地を追跡しています",
     );
     expect(setView).toHaveBeenCalledWith([35.6812, 139.7671], 16);
+    expect(onPositionChange).toHaveBeenCalledWith([35.6812, 139.7671]);
   });
 
   it("automatically tracks location when permission is already granted", async () => {
@@ -161,7 +182,21 @@ describe("MapCanvas", () => {
     await waitFor(() => expect(watchPosition).toHaveBeenCalledOnce());
   });
 
-  it("draws estimated route lines from the current position by report condition", async () => {
+  it("clears the location watcher when leaving the map", () => {
+    const clearWatch = vi.fn();
+    const watchPosition = vi.fn(() => 7);
+    vi.stubGlobal("navigator", {
+      geolocation: { watchPosition, clearWatch },
+    });
+
+    const view = render(<MapCanvas />);
+    fireEvent.click(screen.getByRole("button", { name: "現在地を追跡" }));
+    view.unmount();
+
+    expect(clearWatch).toHaveBeenCalledWith(7);
+  });
+
+  it("does not request or draw misleading routes to reports", async () => {
     const watchPosition = vi.fn((success: PositionCallback) => {
       success({
         coords: { latitude: 35.6812, longitude: 139.7671 },
@@ -171,23 +206,7 @@ describe("MapCanvas", () => {
     vi.stubGlobal("navigator", {
       geolocation: { watchPosition, clearWatch: vi.fn() },
     });
-    const fetchRoute = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        code: "Ok",
-        routes: [
-          {
-            geometry: {
-              coordinates: [
-                [139.7671, 35.6812],
-                [139.766, 35.682],
-                [139.765, 35.683],
-              ],
-            },
-          },
-        ],
-      }),
-    });
+    const fetchRoute = vi.fn();
     vi.stubGlobal("fetch", fetchRoute);
 
     render(
@@ -230,26 +249,8 @@ describe("MapCanvas", () => {
     expect(screen.queryAllByTestId("map-route")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "現在地を追跡" }));
 
-    await waitFor(() => {
-      expect(screen.getAllByTestId("map-route")).toHaveLength(4);
-    });
-    expect(fetchRoute).toHaveBeenCalledTimes(4);
-    expect(screen.getAllByTestId("map-route")[0]?.dataset.pointCount).toBe("3");
-    expect(screen.getAllByTestId("map-route")[0]?.dataset.color).toBe(
-      "#2e5d4e",
-    );
-    expect(screen.getAllByTestId("map-route")[1]?.dataset.dashArray).toBe(
-      "4 9",
-    );
-    expect(screen.getAllByTestId("map-route")[2]?.dataset.color).toBe(
-      "#c7362a",
-    );
-    expect(screen.getAllByTestId("map-route")[3]?.dataset.color).toBe(
-      "#f0a92e",
-    );
-    expect(screen.getAllByTestId("map-route")[3]?.dataset.dashArray).toBe(
-      "4 9",
-    );
+    expect(fetchRoute).not.toHaveBeenCalled();
+    expect(screen.queryAllByTestId("map-route")).toHaveLength(0);
   });
 
   it("shows guidance when location permission is denied", async () => {
