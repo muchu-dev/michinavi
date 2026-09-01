@@ -40,12 +40,33 @@ function encodeMeshCode(coordinate: {
   }
 }
 
+/**
+ * メッシュコードの先頭4桁（1次メッシュ。緯度・経度それぞれ約1°、
+ * 一辺おおよそ80〜110km）を取り出す。road_status_estimates を
+ * テーブル全件ではなく、出発地・目的地と同じ1次メッシュに絞って
+ * 取得するための粗いバウンディングボックス代わりに使う
+ */
+function primaryMeshPrefix(meshCode: string): string {
+  return meshCode.slice(0, 4);
+}
+
 async function fetchStatuses(
   supabase: TRPCContext["supabase"],
+  originMeshCode: string,
+  destinationMeshCode: string,
 ): Promise<StatusLookup> {
+  const prefixes = new Set([
+    primaryMeshPrefix(originMeshCode),
+    primaryMeshPrefix(destinationMeshCode),
+  ]);
+  const orFilter = [...prefixes]
+    .map((prefix) => `mesh_code.like.${prefix}%`)
+    .join(",");
+
   const { data, error } = await supabase
     .from("road_status_estimates")
-    .select("mesh_code, road_condition");
+    .select("mesh_code, road_condition")
+    .or(orFilter);
 
   if (error) {
     throw toTRPCError(error, "道路状態の取得に失敗しました");
@@ -141,7 +162,11 @@ export const routeRouter = createTRPCRouter({
       const originMeshCode = encodeMeshCode(input.origin);
       const destinationMeshCode = encodeMeshCode(input.destination);
 
-      const statuses = await fetchStatuses(ctx.supabase);
+      const statuses = await fetchStatuses(
+        ctx.supabase,
+        originMeshCode,
+        destinationMeshCode,
+      );
       const path = findMeshPath(originMeshCode, destinationMeshCode, statuses);
 
       if (!path) {
