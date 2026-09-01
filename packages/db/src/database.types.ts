@@ -397,6 +397,48 @@ export type Database = {
           },
         ];
       };
+      shelter_assignments: {
+        Row: {
+          assigned_at: string;
+          household_id: string;
+          is_over_capacity: boolean;
+          party_size: number;
+          shelter_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          assigned_at?: string;
+          household_id: string;
+          is_over_capacity?: boolean;
+          party_size: number;
+          shelter_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          assigned_at?: string;
+          household_id?: string;
+          is_over_capacity?: boolean;
+          party_size?: number;
+          shelter_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shelter_assignments_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: true;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shelter_assignments_shelter_id_fkey";
+            columns: ["shelter_id"];
+            isOneToOne: false;
+            referencedRelation: "shelters";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       shelter_hazard_supports: {
         Row: {
           hazard_type: Database["public"]["Enums"]["hazard_type"];
@@ -549,6 +591,21 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      assign_shelter: {
+        Args: {
+          p_candidate_limit?: number;
+          p_latitude: number;
+          p_longitude: number;
+          p_radius_m?: number;
+        };
+        Returns: {
+          distance_m: number;
+          expected_people: number;
+          is_over_capacity: boolean;
+          party_size: number;
+          shelter_id: string;
+        }[];
+      };
       import_shelters: {
         Args: { p_shelters: Json };
         Returns: {
@@ -600,6 +657,16 @@ export type Database = {
           household_name: string;
           is_created: boolean;
           user_id: string;
+        }[];
+      };
+      shelter_loads: {
+        Args: { p_shelter_ids: string[] };
+        Returns: {
+          capacity: number;
+          expected_people: number;
+          household_count: number;
+          occupancy_rate: number;
+          shelter_id: string;
         }[];
       };
       update_household_account: {
