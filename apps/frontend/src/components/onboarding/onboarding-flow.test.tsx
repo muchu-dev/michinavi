@@ -68,6 +68,7 @@ describe("OnboardingFlow", () => {
     expect(alert.textContent).toContain(
       "性別を選択してください。",
     );
+    expect(alert.className).toContain("bg-impassable-soft");
     expect(document.activeElement).toBe(alert);
   });
 

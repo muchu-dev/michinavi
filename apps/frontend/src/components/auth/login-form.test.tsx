@@ -74,6 +74,18 @@ describe("LoginForm", () => {
     ).toBe("true");
   });
 
+  it("uses the semantic error background for authentication failures", async () => {
+    const action = vi.fn(async () => ({
+      message: "メールアドレスまたはパスワードが正しくありません。",
+    }));
+
+    render(<LoginForm action={action} />);
+    fireEvent.submit(screen.getByRole("form", { name: "ログイン" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.className).toContain("bg-impassable-soft");
+  });
+
   it("disables the submit button while authentication is pending", async () => {
     let resolveAction: ((value: Record<string, never>) => void) | undefined;
     const action = vi.fn(
