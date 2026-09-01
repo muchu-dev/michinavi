@@ -1,8 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    // scripts/ は node の型ストリッピングで直接実行するため、
+    // 相対 import に .ts の拡張子が要る（--experimental-strip-types / Node 24）
+    "allowImportingTsExtensions": true
   },
-  "include": ["src", "vitest.config.mts"],
+  "include": ["src", "scripts", "vitest.config.mts"],
   "exclude": ["node_modules"]
 }
