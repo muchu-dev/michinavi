@@ -92,21 +92,12 @@ export default function PostsPage() {
   const canSubmit = condition !== null;
 
   // 地図を残したまま投稿フォームを開き、投稿対象地点を確定する関数。
-  const openReportForm = async () => {
+  const openReportForm = () => {
+    if (!mapPosition) return;
     setSuccessMessage(null);
     setSubmitError(null);
+    setDraftPosition(mapPosition);
     setView("report");
-    try {
-      const position = await getCurrentPosition();
-      const coordinates: [number, number] = [
-        position.coords.latitude,
-        position.coords.longitude,
-      ];
-      setDraftPosition(coordinates);
-      setMapPosition(coordinates);
-    } catch (error) {
-      setSubmitError(getSubmitErrorMessage(error));
-    }
   };
 
   // 投稿をキャンセルして入力状態を破棄し、地図画面へ戻る関数。
@@ -208,6 +199,7 @@ export default function PostsPage() {
           center={REPORT_REGION.center}
           regionName={displayedRegionName}
           reports={visibleReports}
+          selectedPosition={mapPosition}
           onPositionChange={setMapPosition}
         />
 
@@ -216,10 +208,13 @@ export default function PostsPage() {
           <button
             type="button"
             onClick={openReportForm}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-xs font-black text-white shadow-card"
+            disabled={!mapPosition}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-xs font-black text-white shadow-card disabled:cursor-not-allowed disabled:bg-disabled"
           >
             <PinIcon />
-            この道の状況を報告する
+            {mapPosition
+              ? "この道の状況を報告する"
+              : "現在地を取得して投稿地点を確認"}
           </button>
         </div>
       </section>
@@ -249,17 +244,6 @@ export default function PostsPage() {
         </span>
         <span className="ml-auto w-12" aria-hidden="true" />
       </header>
-
-      <div className="min-h-52 shrink-0 border-b border-outline">
-        <MapView
-          center={REPORT_REGION.center}
-          compact
-          regionName={displayedRegionName}
-          reports={visibleReports}
-          selectedPosition={draftPosition}
-          onPositionChange={setMapPosition}
-        />
-      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-3">
         {/* 通れる・注意が必要・通れないの選択欄。 */}

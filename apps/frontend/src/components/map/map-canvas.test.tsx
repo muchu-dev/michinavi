@@ -26,8 +26,18 @@ vi.mock("react-leaflet", () => ({
       {children}
     </div>
   ),
-  Marker: ({ children }: PropsWithChildren) => (
-    <div data-testid="report-marker">{children}</div>
+  Marker: ({
+    children,
+    icon,
+    position,
+  }: PropsWithChildren<{ icon?: { html?: string }; position?: unknown }>) => (
+    <div
+      data-icon-html={icon?.html}
+      data-position={JSON.stringify(position)}
+      data-testid="report-marker"
+    >
+      {children}
+    </div>
   ),
   Popup: ({ children }: PropsWithChildren) => <div>{children}</div>,
   TileLayer: ({ attribution, url }: { attribution: string; url: string }) => (
@@ -128,11 +138,38 @@ describe("MapCanvas", () => {
     expect(screen.queryAllByTestId("report-marker")).toHaveLength(0);
   });
 
-  it("moves the map to the selected report position", () => {
+  it("previews the post bubble at the center of its saved mesh", () => {
     render(<MapCanvas selectedPosition={[35.6812, 139.7671]} />);
 
-    expect(setView).toHaveBeenCalledWith([35.6812, 139.7671], 16);
-    expect(screen.getByText("今回の投稿地点")).toBeTruthy();
+    const preview = screen.getByTestId("report-marker");
+    expect(preview.getAttribute("data-position")).toBe(
+      JSON.stringify([35.68020833333334, 139.7671875]),
+    );
+    expect(preview.getAttribute("data-icon-html")).toContain("var(--brand)");
+    expect(setView).toHaveBeenCalledWith([35.68020833333334, 139.7671875], 16);
+    expect(screen.getByText("投稿後の吹き出し表示位置")).toBeTruthy();
+    expect(screen.queryAllByTestId("map-marker")).toHaveLength(0);
+  });
+
+  it("merges the preview into an existing bubble in the same mesh", () => {
+    render(
+      <MapCanvas
+        reports={[
+          {
+            id: "existing",
+            meshCode: "5339461132",
+            roadCondition: "caution",
+            createdAt: "2026-08-29T01:00:00.000Z",
+          },
+        ]}
+        selectedPosition={[35.6812, 139.7671]}
+      />,
+    );
+
+    expect(screen.getAllByTestId("report-marker")).toHaveLength(1);
+    expect(
+      screen.getByTestId("report-marker").getAttribute("data-icon-html"),
+    ).toContain(">2</text>");
   });
 
   it("starts tracking on user action and renders the acquired current position", async () => {

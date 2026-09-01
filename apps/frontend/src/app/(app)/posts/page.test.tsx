@@ -30,12 +30,27 @@ const { listUseQuery, mutateAsync } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/components/map/map-view", () => ({
-  MapView: ({ reports = [] }: { reports?: unknown[] }) => (
-    <div
-      data-report-count={reports.length}
-      role="img"
-      aria-label="投稿地点の地図"
-    />
+  MapView: ({
+    onPositionChange,
+    reports = [],
+    selectedPosition,
+  }: {
+    onPositionChange?: (position: [number, number]) => void;
+    reports?: unknown[];
+    selectedPosition?: [number, number] | null;
+  }) => (
+    <div role="img" aria-label="投稿地点の地図">
+      <span data-report-count={reports.length} />
+      <span data-selected-position={JSON.stringify(selectedPosition)} />
+      {onPositionChange ? (
+        <button
+          type="button"
+          onClick={() => onPositionChange([35.6812, 139.7671])}
+        >
+          テスト現在地を設定
+        </button>
+      ) : null}
+    </div>
   ),
 }));
 
@@ -92,8 +107,32 @@ describe("PostsPage", () => {
     expect(
       screen
         .getByRole("img", { name: "投稿地点の地図" })
-        .getAttribute("data-report-count"),
+        .querySelector("[data-report-count]")
+        ?.getAttribute("data-report-count"),
     ).toBe("1");
+  });
+
+  it("previews the post position before opening a map-free form", () => {
+    render(<PostsPage />);
+
+    const reportButton = screen.getByRole("button", {
+      name: "現在地を取得して投稿地点を確認",
+    }) as HTMLButtonElement;
+    expect(reportButton.disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
+    expect(
+      screen
+        .getByRole("img", { name: "投稿地点の地図" })
+        .querySelector("[data-selected-position]")
+        ?.getAttribute("data-selected-position"),
+    ).toBe(JSON.stringify([35.6812, 139.7671]));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "この道の状況を報告する" }),
+    );
+    expect(screen.queryByRole("img", { name: "投稿地点の地図" })).toBeNull();
+    expect(screen.getByRole("radio", { name: "通れる" })).toBeTruthy();
   });
 
   it("uses native radios and allows caution submission without a cause", async () => {
@@ -107,6 +146,7 @@ describe("PostsPage", () => {
     });
     render(<PostsPage />);
 
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
     fireEvent.click(
       screen.getByRole("button", { name: "この道の状況を報告する" }),
     );
@@ -133,6 +173,7 @@ describe("PostsPage", () => {
       },
     });
     render(<PostsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
     fireEvent.click(
       screen.getByRole("button", { name: "この道の状況を報告する" }),
     );

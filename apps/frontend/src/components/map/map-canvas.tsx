@@ -10,7 +10,10 @@ import {
   TileLayer,
   useMap,
 } from "react-leaflet";
-import { quarterMeshCodeToCenter } from "@/lib/location/mesh-code";
+import {
+  quarterMeshCodeToCenter,
+  toQuarterMeshCode,
+} from "@/lib/location/mesh-code";
 import type { MapReport } from "./map-view";
 
 type LocationStatus = "idle" | "loading" | "success" | "error";
@@ -47,6 +50,18 @@ export function MapCanvas({
   );
   const locationWatchId = useRef<number | null>(null);
   const reportGroups = useMemo(() => groupReportsByMesh(reports), [reports]);
+  const selectedReportPreview = useMemo(() => {
+    if (!selectedPosition) return null;
+    const meshCode = toQuarterMeshCode(...selectedPosition);
+    const existingGroup = reportGroups.find(
+      (group) => group.meshCode === meshCode,
+    );
+    return {
+      count: (existingGroup?.reports.length ?? 0) + 1,
+      meshCode,
+      position: quarterMeshCodeToCenter(meshCode),
+    };
+  }, [reportGroups, selectedPosition]);
 
   const watchCurrentPosition = useCallback(() => {
     if (!("geolocation" in navigator)) {
@@ -133,35 +148,35 @@ export function MapCanvas({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {reportGroups.map((group) => (
-          <Marker
-            key={group.meshCode}
-            position={group.center}
-            icon={createReportIcon(
-              group.reports.length,
-              getGroupCondition(group.reports),
-            )}
-          >
-            <Popup>
-              <ReportGroupDetails reports={group.reports} />
-            </Popup>
-          </Marker>
-        ))}
-        {selectedPosition ? (
-          <>
-            <MoveMapToPosition position={selectedPosition} />
-            <CircleMarker
-              center={selectedPosition}
-              radius={12}
-              pathOptions={{
-                color: MAP_COLORS.surface,
-                fillColor: MAP_COLORS.brand,
-                fillOpacity: 1,
-                weight: 4,
-              }}
+        {reportGroups
+          .filter((group) => group.meshCode !== selectedReportPreview?.meshCode)
+          .map((group) => (
+            <Marker
+              key={group.meshCode}
+              position={group.center}
+              icon={createReportIcon(
+                group.reports.length,
+                getGroupCondition(group.reports),
+              )}
             >
-              <Popup>今回の投稿地点</Popup>
-            </CircleMarker>
+              <Popup>
+                <ReportGroupDetails reports={group.reports} />
+              </Popup>
+            </Marker>
+          ))}
+        {selectedReportPreview ? (
+          <>
+            <MoveMapToPosition position={selectedReportPreview.position} />
+            <Marker
+              position={selectedReportPreview.position}
+              icon={createReportIcon(
+                selectedReportPreview.count,
+                null,
+                "投稿後の吹き出し表示位置",
+              )}
+            >
+              <Popup>投稿後の吹き出し表示位置</Popup>
+            </Marker>
           </>
         ) : null}
         {currentPosition ? (
@@ -222,7 +237,11 @@ function getGroupCondition(reports: MapReport[]): RoadCondition {
     : "passable";
 }
 
-function createReportIcon(count: number, condition: RoadCondition) {
+function createReportIcon(
+  count: number,
+  condition: RoadCondition | null,
+  ariaLabel = `${count}件の投稿`,
+) {
   // 同一メッシュの投稿を1本の吹き出しピンにまとめ、右上へ件数を表示する。
   const countLabel = count > 99 ? "99+" : String(count);
   const color =
@@ -230,10 +249,12 @@ function createReportIcon(count: number, condition: RoadCondition) {
       ? MAP_COLORS.passable
       : condition === "caution"
         ? MAP_COLORS.caution
-        : MAP_COLORS.impassable;
+        : condition === "impassable"
+          ? MAP_COLORS.impassable
+          : MAP_COLORS.brand;
   return divIcon({
     className: "bg-transparent border-0",
-    html: `<svg aria-label="${count}件の投稿" role="img" viewBox="0 0 64 64" width="52" height="52"><path d="M9 9h39a6 6 0 0 1 6 6v27a6 6 0 0 1-6 6H25L13 58V48H9a6 6 0 0 1-6-6V15a6 6 0 0 1 6-6Z" fill="${MAP_COLORS.surface}" stroke="${color}" stroke-width="3" stroke-linejoin="round"/><path d="M15 22h27M15 30h27M15 38h18" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/><circle cx="51" cy="12" r="11" fill="${color}" stroke="${MAP_COLORS.surface}" stroke-width="2"/><text x="51" y="15.5" fill="${MAP_COLORS.surface}" font-family="system-ui,sans-serif" font-size="10" font-weight="800" text-anchor="middle">${countLabel}</text></svg>`,
+    html: `<svg aria-label="${ariaLabel}" role="img" viewBox="0 0 64 64" width="52" height="52"><path d="M9 9h39a6 6 0 0 1 6 6v27a6 6 0 0 1-6 6H25L13 58V48H9a6 6 0 0 1-6-6V15a6 6 0 0 1 6-6Z" fill="${MAP_COLORS.surface}" stroke="${color}" stroke-width="3" stroke-linejoin="round"/><path d="M15 22h27M15 30h27M15 38h18" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/><circle cx="51" cy="12" r="11" fill="${color}" stroke="${MAP_COLORS.surface}" stroke-width="2"/><text x="51" y="15.5" fill="${MAP_COLORS.surface}" font-family="system-ui,sans-serif" font-size="10" font-weight="800" text-anchor="middle">${countLabel}</text></svg>`,
     iconSize: [52, 52],
     iconAnchor: [13, 50],
     popupAnchor: [13, -46],
