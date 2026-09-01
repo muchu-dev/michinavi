@@ -38,11 +38,11 @@ describe("MapCanvas", () => {
   });
 
   it("renders the prototype route conditions and map points", () => {
-    render(<MapCanvas />);
+    render(<MapCanvas showDemoLocation />);
 
     expect(screen.getAllByTestId("map-route")).toHaveLength(3);
     expect(screen.getAllByTestId("map-marker")).toHaveLength(2);
-    expect(screen.getByText("現在地（デモ）")).toBeTruthy();
+    expect(screen.getByText("デモ位置")).toBeTruthy();
     expect(
       screen.getByText("白川橋付近：通行不可の報告があります"),
     ).toBeTruthy();

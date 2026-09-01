@@ -2,15 +2,9 @@
 
 import type { AppRouter } from "@michinavi/backend";
 import type { inferRouterOutputs } from "@trpc/server";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapView } from "@/components/map/map-view";
 import { api } from "@/lib/trpc/client";
-
-const routeLegend = [
-  { label: "通行可", color: "bg-passable", dashed: false },
-  { label: "注意", color: "bg-caution", dashed: true },
-  { label: "通行不可", color: "bg-impassable", dashed: false },
-] as const;
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type NearbyShelter = RouterOutputs["shelter"]["nearby"][number];
@@ -19,61 +13,22 @@ type ShelterWithDistance = NearbyShelter & {
   distanceKm: number | null;
 };
 
-//場所の緯度・経度を保持する
+// 現在地とデモ位置を同じ形式で扱う。
 type Location = {
   latitude: number;
   longitude: number;
 };
 
-// 受け入れ条件アイコン
+const demoLocation: Location = {
+  latitude: 34.6383,
+  longitude: 133.6903,
+};
+
+// 受け入れ条件アイコンへ渡す種別と可否を定義する。
 type AcceptanceIconProps = {
   type: "pets" | "infants" | "wheelchair";
   available: boolean;
 };
-
-// OSRMのレスポンス型
-type OsrmTableResponse = {
-  code: string;
-  distances?: (number | null)[][];
-};
-//OSRM、経路取得関数
-async function getRouteDistances(
-  currentLocation: Location,
-  shelters: readonly NearbyShelter[],
-  signal?: AbortSignal,
-) {
-  const coordinates = [
-    currentLocation,
-    ...shelters.map((shelter) => ({
-      latitude: shelter.latitude,
-      longitude: shelter.longitude,
-    })),
-  ]
-    .map((location) => `${location.longitude},${location.latitude}`)
-    .join(";");
-
-  const destinations = shelters.map((_, index) => index + 1).join(";");
-
-  const url =
-    `https://router.project-osrm.org/table/v1/driving/${coordinates}` +
-    `?sources=0&destinations=${destinations}&annotations=distance`;
-
-  const response = await fetch(url, { signal });
-
-  if (!response.ok) {
-    throw new Error("OSRMから距離を取得できませんでした。");
-  }
-
-  const data: OsrmTableResponse = await response.json();
-
-  if (data.code !== "Ok" || !data.distances?.[0]) {
-    throw new Error("OSRMで経路を計算できませんでした。");
-  }
-
-  return data.distances[0].map((distance) =>
-    distance === null ? null : distance / 1000,
-  );
-}
 
 // 端末の現在時刻を時分だけの日本語表示へ
 function getCurrentTime() {
@@ -98,7 +53,7 @@ function AcceptanceIcon({ type, available }: AcceptanceIconProps) {
       className={`grid size-8 place-items-center rounded-md border ${
         available
           ? "border-brand/25 bg-brand/10 text-brand"
-          : "border-outline bg-white text-[#aeb5bc]"
+          : "border-outline bg-white text-muted"
       }`}
       title={`${label}：${available ? "受け入れ可" : "受け入れ不可"}`}
       aria-label={`${label}は${available ? "受け入れ可能" : "受け入れ不可"}`}
@@ -143,6 +98,7 @@ function AcceptanceIcon({ type, available }: AcceptanceIconProps) {
   );
 }
 
+// APIが返すコード値を避難所詳細で読みやすい日本語へ変換する。
 const shelterCategoryLabels = {
   emergency_site: "指定緊急避難場所",
   designated_shelter: "指定避難所",
@@ -173,36 +129,46 @@ function acceptsCondition(
 }
 
 // 避難所タブの地図と現在地に近い避難所一覧を表示
-export function PageShelter() {
+export function ShelterPanel() {
+  // 位置情報・一覧更新時刻・詳細選択をパネル内の状態として管理する。
   const [sheltersUpdatedAt, setSheltersUpdatedAt] = useState("--:--");
-  const [currentLocation, setCurrentLocation] = useState<Location>({
-    latitude: 34.6383,
-    longitude: 133.6903,
-  });
-  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
-  const [isLoadingDistances, setIsLoadingDistances] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [sortedShelters, setSortedShelters] = useState<ShelterWithDistance[]>(
-    [],
+  const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
+  const [locationMode, setLocationMode] = useState<"actual" | "demo" | null>(
+    null,
   );
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [selectedShelterId, setSelectedShelterId] = useState<string | null>(
     null,
   );
-  const nearbyQuery = api.shelter.nearby.useQuery({
-    latitude: currentLocation.latitude,
-    longitude: currentLocation.longitude,
-    radiusM: 50_000,
-    limit: 10,
-  });
+  // 位置取得後だけ近隣一覧を取得し、選択時だけ該当避難所の詳細を取得する。
+  const nearbyQuery = api.shelter.nearby.useQuery(
+    {
+      latitude: currentLocation?.latitude ?? 0,
+      longitude: currentLocation?.longitude ?? 0,
+      radiusM: 50_000,
+      limit: 10,
+    },
+    { enabled: currentLocation !== null },
+  );
   const detailQuery = api.shelter.byId.useQuery(
     { id: selectedShelterId ?? "00000000-0000-0000-0000-000000000000" },
     { enabled: selectedShelterId !== null },
   );
 
-  // 画面を表示した時点の端末時刻を初回更新時刻として設定
+  // APIの距離を基準に並べ直し、表示用データを元のレスポンスから分離する。
+  const sortedShelters = useMemo<ShelterWithDistance[]>(
+    () =>
+      [...(nearbyQuery.data ?? [])]
+        .map((shelter) => ({ ...shelter, distanceKm: null }))
+        .sort((a, b) => a.distanceM - b.distanceM),
+    [nearbyQuery.data],
+  );
+
+  // 避難所データの取得完了時刻だけを更新時刻として表示する。
   useEffect(() => {
-    setSheltersUpdatedAt(getCurrentTime());
-  }, []);
+    if (nearbyQuery.data) setSheltersUpdatedAt(getCurrentTime());
+  }, [nearbyQuery.data]);
 
   // ブラウザから現在地を再取得して距離計算を更新
   const updateCurrentLocation = () => {
@@ -220,9 +186,8 @@ export function PageShelter() {
           latitude: coords.latitude,
           longitude: coords.longitude,
         });
-        setSheltersUpdatedAt(getCurrentTime());
+        setLocationMode("actual");
         setIsUpdatingLocation(false);
-        void nearbyQuery.refetch();
       },
       () => {
         setLocationError("現在地を取得できませんでした。");
@@ -232,96 +197,26 @@ export function PageShelter() {
     );
   };
 
-  // 現在地が変わるたびにOSRMで道路経路距離を取得して並べ替え
-  useEffect(() => {
-    const shelters = nearbyQuery.data;
-
-    if (!shelters || shelters.length === 0) {
-      setSortedShelters([]);
-      return;
-    }
-
-    const abortController = new AbortController();
-
-    const loadDistances = async () => {
-      try {
-        setIsLoadingDistances(true);
-        setLocationError(null);
-        const distances = await getRouteDistances(
-          currentLocation,
-          shelters,
-          abortController.signal,
-        );
-        const sheltersWithDistance = shelters
-          .map((shelter, index) => ({
-            ...shelter,
-            distanceKm: distances[index] ?? null,
-          }))
-          .sort(
-            (a, b) =>
-              (a.distanceKm ?? Number.POSITIVE_INFINITY) -
-              (b.distanceKm ?? Number.POSITIVE_INFINITY),
-          );
-
-        setSortedShelters(sheltersWithDistance);
-        setSheltersUpdatedAt(getCurrentTime());
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-
-        setLocationError(
-          error instanceof Error
-            ? error.message
-            : "OSRMで経路を計算できませんでした。",
-        );
-      } finally {
-        if (!abortController.signal.aborted) setIsLoadingDistances(false);
-      }
-    };
-
-    void loadDistances();
-    return () => abortController.abort();
-  }, [currentLocation, nearbyQuery.data]);
+  // シード避難所を確認できる真備町箭田の代表点へ、明示的にデモ位置を切り替える。
+  const useDemoLocation = () => {
+    setCurrentLocation(demoLocation);
+    setLocationMode("demo");
+    setLocationError(null);
+  };
 
   return (
     <>
       {/* 避難所画面の上半分に地図 */}
       <div className="relative h-[19rem] shrink-0 overflow-hidden border-b border-outline">
-        <MapView />
-
-        <div
-          role="img"
-          aria-label="現在地"
-          className="pointer-events-none absolute left-[13%] top-4 z-[550] grid size-9 place-items-center rounded-full border-[3px] border-white bg-[#ef625c] text-white shadow-card"
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="size-4 fill-none stroke-current stroke-[2.2]"
-          >
-            <path d="M12 21s6-5.4 6-11a6 6 0 1 0-12 0c0 5.6 6 11 6 11Z" />
-            <circle cx="12" cy="10" r="2" />
-          </svg>
-        </div>
-
-        <div className="pointer-events-none absolute bottom-3 left-3 z-[550] flex items-center gap-3 rounded-xl border border-outline bg-white/95 px-3 py-2 text-[0.6875rem] font-bold text-ink shadow-card backdrop-blur">
-          {routeLegend.map((item) => (
-            <span key={item.label} className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className={`h-1 w-5 rounded-full ${item.color} ${
-                  item.dashed
-                    ? "bg-[repeating-linear-gradient(90deg,currentColor_0_5px,transparent_5px_8px)] text-caution"
-                    : ""
-                }`}
-              />
-              {item.label}
-            </span>
-          ))}
-        </div>
+        <MapView
+          currentLocation={currentLocation}
+          locationLabel={
+            locationMode === "demo" ? "デモ位置（真備町箭田）" : undefined
+          }
+        />
       </div>
 
-      {/*下半分の近隣の避難所一覧を表示*/}
+      {/* 下半分に位置更新操作、近隣一覧、選択した避難所の詳細を表示する。 */}
       <section
         className="px-3 pb-5 pt-3"
         aria-labelledby="nearby-shelters-title"
@@ -336,35 +231,47 @@ export function PageShelter() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={useDemoLocation}
+              disabled={isUpdatingLocation || nearbyQuery.isFetching}
+              className="inline-flex min-h-6 items-center rounded-full border border-brand bg-brand/10 px-2 text-[0.625rem] font-bold text-brand disabled:opacity-60"
+            >
+              デモ位置
+            </button>
+            <button
+              type="button"
               onClick={updateCurrentLocation}
-              disabled={
-                isUpdatingLocation ||
-                isLoadingDistances ||
-                nearbyQuery.isFetching
-              }
+              disabled={isUpdatingLocation || nearbyQuery.isFetching}
               className="inline-flex min-h-6 items-center gap-1 rounded-full border border-outline bg-white px-2 text-[0.625rem] font-bold text-muted disabled:opacity-60"
               aria-label="近隣の避難所を更新"
             >
               <span aria-hidden="true">↻</span>
               {isUpdatingLocation
                 ? "現在地取得中"
-                : isLoadingDistances || nearbyQuery.isFetching
-                  ? "経路計算中"
+                : nearbyQuery.isFetching
+                  ? "避難所取得中"
                   : "更新"}
             </button>
-            {/* DB接続後はAPIの配列件数と取得時刻を表示する予定 */}
+            {/* APIから取得できた避難所件数と、最後に取得が完了した時刻を表示する。 */}
             <span className="whitespace-nowrap text-[0.625rem] font-bold text-muted">
-              {sortedShelters.length}件/{sheltersUpdatedAt}時点
+              {currentLocation === null ? "--" : sortedShelters.length}件/
+              {sheltersUpdatedAt}時点
             </span>
           </div>
         </div>
 
+        {/* 位置情報と避難所APIのエラーを別々に表示し、失敗箇所を明確にする。 */}
         {locationError && (
           <p
             role="alert"
             className="mb-2 px-1 text-[0.6875rem] font-bold text-impassable"
           >
             {locationError}
+          </p>
+        )}
+
+        {locationMode === "demo" && (
+          <p className="mb-2 px-1 text-[0.6875rem] font-bold text-brand">
+            デモ位置：岡山県倉敷市真備町箭田
           </p>
         )}
 
@@ -377,6 +284,7 @@ export function PageShelter() {
           </p>
         )}
 
+        {/* 未選択時は近隣一覧を、選択後はbyId APIの詳細を表示する。 */}
         {selectedShelterId === null ? (
           <div className="space-y-2">
             {nearbyQuery.isLoading && (
@@ -384,17 +292,24 @@ export function PageShelter() {
                 避難所情報を読み込んでいます
               </p>
             )}
-            {!nearbyQuery.isLoading && sortedShelters.length === 0 && (
+            {currentLocation === null && (
               <p className="rounded-xl border border-outline bg-white px-3 py-5 text-center text-xs font-bold text-muted">
-                周辺に避難所が見つかりませんでした
+                「更新」から現在地を取得すると、近い順に避難所を表示します
               </p>
             )}
+            {currentLocation !== null &&
+              !nearbyQuery.isLoading &&
+              sortedShelters.length === 0 && (
+                <p className="rounded-xl border border-outline bg-white px-3 py-5 text-center text-xs font-bold text-muted">
+                  周辺に避難所が見つかりませんでした
+                </p>
+              )}
             {sortedShelters.map((shelter) => (
               <button
                 type="button"
                 key={shelter.id}
                 onClick={() => setSelectedShelterId(shelter.id)}
-                className="flex w-full items-center gap-3 rounded-xl border border-outline bg-white px-3 py-2.5 text-left shadow-[0_2px_8px_rgb(38_47_44/0.05)] transition-colors hover:bg-brand/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                className="flex w-full items-center gap-3 rounded-xl border border-outline bg-white px-3 py-2.5 text-left shadow-card transition-colors hover:bg-brand/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 aria-label={`${shelter.name}の詳細を表示`}
               >
                 <div className="min-w-0 flex-1">
@@ -402,13 +317,7 @@ export function PageShelter() {
                     {shelter.name}
                   </h3>
                   <p className="mt-0.5 text-[0.6875rem] font-bold text-muted">
-                    {shelter.distanceKm === null
-                      ? `直線距離約${(shelter.distanceM / 1000).toFixed(1)}km`
-                      : `道路距離約${
-                          shelter.distanceKm < 10
-                            ? shelter.distanceKm.toFixed(1)
-                            : Math.round(shelter.distanceKm)
-                        }km`}
+                    直線距離約{(shelter.distanceM / 1000).toFixed(1)}km
                   </p>
                   <span className="mt-2 flex min-w-0 gap-1.5">
                     <AcceptanceIcon
@@ -467,7 +376,7 @@ export function PageShelter() {
             )}
 
             {detailQuery.data && (
-              <article className="rounded-2xl border border-outline bg-white p-4 shadow-[0_2px_8px_rgb(38_47_44/0.05)]">
+              <article className="rounded-2xl border border-outline bg-white p-4 shadow-card">
                 <p className="text-[0.6875rem] font-bold text-brand">
                   {shelterCategoryLabels[detailQuery.data.category]}
                 </p>

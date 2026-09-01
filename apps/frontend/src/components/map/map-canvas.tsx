@@ -28,13 +28,31 @@ const impassableRoute: [number, number][] = [
   [43.6996, 142.5162],
 ];
 
-export function MapCanvas() {
+type MapCanvasProps = {
+  currentLocation?: { latitude: number; longitude: number } | null;
+  locationLabel?: string;
+  showDemoLocation?: boolean;
+};
+
+export function MapCanvas({
+  currentLocation = null,
+  locationLabel,
+  showDemoLocation = false,
+}: MapCanvasProps) {
+  const displayedLocation: [number, number] | null = currentLocation
+    ? [currentLocation.latitude, currentLocation.longitude]
+    : showDemoLocation
+      ? center
+      : null;
+
   return (
     <MapContainer
-      center={center}
+      key={displayedLocation?.join(",") ?? "default-map-center"}
+      center={displayedLocation ?? center}
       zoom={15}
       scrollWheelZoom={false}
-      className="absolute inset-0 h-full min-h-[30rem] w-full"
+      className="absolute inset-0 h-full min-h-0 w-full"
+      style={{ background: "var(--app-canvas)" }}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -42,12 +60,12 @@ export function MapCanvas() {
       />
       <Polyline
         positions={passableRoute}
-        pathOptions={{ color: "#2e5d4e", weight: 7, opacity: 0.9 }}
+        pathOptions={{ color: "var(--passable)", weight: 7, opacity: 0.9 }}
       />
       <Polyline
         positions={cautionRoute}
         pathOptions={{
-          color: "#f0a92e",
+          color: "var(--caution)",
           weight: 7,
           opacity: 0.9,
           dashArray: "8 10",
@@ -55,26 +73,30 @@ export function MapCanvas() {
       />
       <Polyline
         positions={impassableRoute}
-        pathOptions={{ color: "#c7362a", weight: 7, opacity: 0.9 }}
+        pathOptions={{ color: "var(--impassable)", weight: 7, opacity: 0.9 }}
       />
-      <CircleMarker
-        center={center}
-        radius={9}
-        pathOptions={{
-          color: "#ffffff",
-          fillColor: "#3f7edb",
-          fillOpacity: 1,
-          weight: 4,
-        }}
-      >
-        <Popup>現在地（デモ）</Popup>
-      </CircleMarker>
+      {displayedLocation && (
+        <CircleMarker
+          center={displayedLocation}
+          radius={9}
+          pathOptions={{
+            color: "var(--surface)",
+            fillColor: "var(--brand)",
+            fillOpacity: 1,
+            weight: 4,
+          }}
+        >
+          <Popup>
+            {locationLabel ?? (currentLocation ? "現在地" : "デモ位置")}
+          </Popup>
+        </CircleMarker>
+      )}
       <CircleMarker
         center={[43.6986, 142.5139]}
         radius={11}
         pathOptions={{
-          color: "#ffffff",
-          fillColor: "#c7362a",
+          color: "var(--surface)",
+          fillColor: "var(--impassable)",
           fillOpacity: 1,
           weight: 3,
         }}

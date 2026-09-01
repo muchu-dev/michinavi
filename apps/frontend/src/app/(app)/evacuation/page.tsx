@@ -1,55 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { PageRoute } from "./page_route";
-import { PageShelter } from "./page_shelter";
+import { useState } from "react";
+import { RoutePanel } from "./_components/route-panel";
+import { ShelterPanel } from "./_components/shelter-panel";
 
 type EvacuationTab = "route" | "shelter";
 
-// 避難経路画面と避難所画面の切り替え
+// 避難計画画面全体で、選択中のタブと共通ヘッダーの色を同期する。
 export default function EvacuationPage() {
   const [selectedTab, setSelectedTab] = useState<EvacuationTab>("route");
-
-  // 選択中のタブに合わせて共通ヘッダーの背景色を変更
-  useEffect(() => {
-    const appHeader =
-      document.getElementById("main-content")?.previousElementSibling;
-
-    if (!(appHeader instanceof HTMLElement)) return;
-
-    const originalBackgroundColor = appHeader.style.backgroundColor;
-    appHeader.style.backgroundColor =
-      selectedTab === "route" ? "#f0a92e" : "#597ebf";
-
-    return () => {
-      appHeader.style.backgroundColor = originalBackgroundColor;
-    };
-  }, [selectedTab]);
 
   return (
     <section
       className="flex min-h-0 flex-1 flex-col bg-app-surface"
       aria-labelledby="evacuation-title"
+      data-app-header-tone={selectedTab === "route" ? "caution" : "brand"}
     >
       <h1 id="evacuation-title" className="sr-only">
         避難計画
       </h1>
 
+      {/* 2つのボタンを単純な表示切り替えとして扱い、選択状態を色とaria-pressedで示す。 */}
       <div
         className={`grid min-h-14 grid-cols-2 text-sm font-black ${
-          selectedTab === "route" ? "bg-[#f0a92e]" : "bg-[#597ebf]"
+          selectedTab === "route" ? "bg-caution" : "bg-brand"
         }`}
-        role="tablist"
-        aria-label="避難情報の表示切り替え"
       >
         <button
           type="button"
-          role="tab"
-          id="evacuation-route-tab"
-          aria-selected={selectedTab === "route"}
-          aria-controls="evacuation-content"
+          aria-pressed={selectedTab === "route"}
           onClick={() => setSelectedTab("route")}
-          className={`bg-[#f0a92e] px-4 text-ink ${
+          className={`bg-caution px-4 text-ink focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-ink ${
             selectedTab === "shelter" ? "rounded-tr-2xl" : ""
           }`}
         >
@@ -58,12 +39,9 @@ export default function EvacuationPage() {
 
         <button
           type="button"
-          role="tab"
-          id="evacuation-shelter-tab"
-          aria-selected={selectedTab === "shelter"}
-          aria-controls="evacuation-content"
+          aria-pressed={selectedTab === "shelter"}
           onClick={() => setSelectedTab("shelter")}
-          className={`bg-[#597ebf] px-4 text-ink ${
+          className={`bg-brand px-4 text-white focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white ${
             selectedTab === "route" ? "rounded-tl-2xl" : ""
           }`}
         >
@@ -71,17 +49,9 @@ export default function EvacuationPage() {
         </button>
       </div>
 
-      <div
-        id="evacuation-content"
-        role="tabpanel"
-        aria-labelledby={
-          selectedTab === "route"
-            ? "evacuation-route-tab"
-            : "evacuation-shelter-tab"
-        }
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        {selectedTab === "route" ? <PageRoute /> : <PageShelter />}
+      {/* 選択された機能だけを描画し、各パネル内の状態を互いに分離する。 */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {selectedTab === "route" ? <RoutePanel /> : <ShelterPanel />}
       </div>
     </section>
   );
