@@ -83,6 +83,53 @@ export type Database = {
         };
         Relationships: [];
       };
+      field_report_photos: {
+        Row: {
+          byte_size: number;
+          created_at: string;
+          exif_stripped: boolean;
+          field_report_id: string;
+          height: number | null;
+          id: string;
+          mime_type: string;
+          processed_at: string | null;
+          storage_path: string;
+          width: number | null;
+        };
+        Insert: {
+          byte_size: number;
+          created_at?: string;
+          exif_stripped?: boolean;
+          field_report_id: string;
+          height?: number | null;
+          id?: string;
+          mime_type: string;
+          processed_at?: string | null;
+          storage_path: string;
+          width?: number | null;
+        };
+        Update: {
+          byte_size?: number;
+          created_at?: string;
+          exif_stripped?: boolean;
+          field_report_id?: string;
+          height?: number | null;
+          id?: string;
+          mime_type?: string;
+          processed_at?: string | null;
+          storage_path?: string;
+          width?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "field_report_photos_field_report_id_fkey";
+            columns: ["field_report_id"];
+            isOneToOne: false;
+            referencedRelation: "field_reports";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       field_reports: {
         Row: {
           created_at: string;
