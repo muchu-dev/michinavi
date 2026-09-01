@@ -608,6 +608,65 @@ export type Database = {
           },
         ];
       };
+      rate_limit_counters: {
+        Row: {
+          action: Database["public"]["Enums"]["rate_limit_action"];
+          count: number;
+          scope: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at: string;
+          user_id: string;
+          window_start: string;
+        };
+        Insert: {
+          action: Database["public"]["Enums"]["rate_limit_action"];
+          count?: number;
+          scope: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at?: string;
+          user_id: string;
+          window_start: string;
+        };
+        Update: {
+          action?: Database["public"]["Enums"]["rate_limit_action"];
+          count?: number;
+          scope?: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at?: string;
+          user_id?: string;
+          window_start?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rate_limit_counters_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      rate_limits: {
+        Row: {
+          action: Database["public"]["Enums"]["rate_limit_action"];
+          level: Database["public"]["Enums"]["verification_level"];
+          max_count: number;
+          scope: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at: string;
+        };
+        Insert: {
+          action: Database["public"]["Enums"]["rate_limit_action"];
+          level: Database["public"]["Enums"]["verification_level"];
+          max_count: number;
+          scope: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at?: string;
+        };
+        Update: {
+          action?: Database["public"]["Enums"]["rate_limit_action"];
+          level?: Database["public"]["Enums"]["verification_level"];
+          max_count?: number;
+          scope?: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       shelter_acceptances: {
         Row: {
           condition_id: string;
@@ -858,6 +917,18 @@ export type Database = {
       };
       can_update_member_status: { Args: { target: string }; Returns: boolean };
       can_view_member_status: { Args: { target: string }; Returns: boolean };
+      create_field_report: {
+        Args: {
+          p_mesh_code: string;
+          p_road_condition: Database["public"]["Enums"]["road_condition"];
+        };
+        Returns: {
+          created_at: string;
+          id: string;
+          mesh_code: string;
+          road_condition: Database["public"]["Enums"]["road_condition"];
+        }[];
+      };
       import_shelters: {
         Args: { p_shelters: Json };
         Returns: {
@@ -969,6 +1040,12 @@ export type Database = {
         | "bird"
         | "reptile"
         | "other";
+      rate_limit_action:
+        | "field_report"
+        | "confirmation"
+        | "community_post"
+        | "content_flag";
+      rate_limit_scope: "hour" | "day";
       report_status: "active" | "resolved" | "expired" | "hidden";
       road_condition: "passable" | "caution" | "impassable";
       shelter_category:
@@ -1142,6 +1219,13 @@ export const Constants = {
       moderation_action: ["hide", "restore", "delete", "warn", "suspend"],
       pet_size: ["small", "medium", "large"],
       pet_species: ["dog", "cat", "small_animal", "bird", "reptile", "other"],
+      rate_limit_action: [
+        "field_report",
+        "confirmation",
+        "community_post",
+        "content_flag",
+      ],
+      rate_limit_scope: ["hour", "day"],
       report_status: ["active", "resolved", "expired", "hidden"],
       road_condition: ["passable", "caution", "impassable"],
       shelter_category: [

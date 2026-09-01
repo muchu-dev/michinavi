@@ -47,6 +47,9 @@ const PUBLICLY_READABLE_TABLES = new Set([
   "acceptance_conditions",
   // 避難所ごとの受入条件の状況（BE-14）
   "shelter_acceptances",
+  // レート制限のしきい値マスタ。個人データを含まない運用パラメータで、
+  // 画面側で「あと何回投稿できるか」を出す用途にも使える（BE-23）
+  "rate_limits",
 ]);
 
 /**
