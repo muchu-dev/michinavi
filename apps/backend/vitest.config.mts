@@ -73,6 +73,9 @@ function localSupabaseEnv(): Record<string, string> {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
     // RLS を迂回する鍵。テストの検証と後片付けだけに使う
     SUPABASE_SECRET_KEY: secretKey,
+    // env.backend.ts の検証を通すためだけのダミー値。
+    // テストは Gemini を実際には呼ばず、呼び出し部分をモックする想定
+    GEMINI_API_KEY: "test-dummy-gemini-api-key",
   };
 }
 

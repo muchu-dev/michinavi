@@ -22,6 +22,21 @@ export const env = createEnv({
     APP_ENV: z.enum(["production", "preview", "local"]),
     NEXT_PUBLIC_SUPABASE_URL: z.url(),
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
+    // Google AI Studio で発行した Gemini API キー（BE-16）。
+    // NEXT_PUBLIC_ を付けないため、ブラウザには一切渡らない。
+    // 未設定でもビルド・起動は止めない。road_status_estimates の再計算だけが
+    // 動かなくなる（投稿の保存自体は影響を受けない）。デプロイ環境に
+    // 鍵を設定し忘れていてもアプリ全体が落ちないようにするための割り切り
+    GEMINI_API_KEY: z.string().min(1).optional(),
+    // 使用する Gemini モデル名。未設定なら既定値を使う。
+    // バージョン名を固定すると Google 側の廃止でいきなり 404 になりうるため、
+    // 切り戻しができるよう env で上書きできるようにしている
+    GEMINI_MODEL: z.string().min(1).optional(),
+    // RLS を迂回する service role キー（BE-16）。
+    // road_status_estimates への書き込みなど、限られた用途にだけ使う。
+    // 呼び出し元は src/db/service-role.ts の 1 ファイルに絞る。
+    // GEMINI_API_KEY 同様、未設定でも起動は止めない
+    SUPABASE_SECRET_KEY: z.string().min(1).optional(),
   },
   // process.env をそのまま渡さないのは、emptyStringAsUndefined が
   // 渡されたオブジェクトから空文字のキーを delete するためである。
@@ -31,6 +46,9 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_MODEL: process.env.GEMINI_MODEL,
+    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
   },
   // Vercel の管理画面は未入力を空文字で渡すことがある
   emptyStringAsUndefined: true,
