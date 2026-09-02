@@ -21,7 +21,8 @@
     "db:start": "pnpm --filter @michinavi/db start",
     "db:stop": "pnpm --filter @michinavi/db stop",
     "db:reset": "pnpm --filter @michinavi/db reset",
-    "db:types": "pnpm --filter @michinavi/db types"
+    "db:types": "pnpm --filter @michinavi/db types",
+    "demo:seed": "pnpm --filter @michinavi/backend demo:seed"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.2",
