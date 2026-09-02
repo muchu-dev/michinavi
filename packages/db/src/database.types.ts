@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      acceptance_conditions: {
+        Row: {
+          created_at: string;
+          display_order: number;
+          id: string;
+          is_active: boolean;
+          key: string;
+          label: string;
+        };
+        Insert: {
+          created_at?: string;
+          display_order?: number;
+          id?: string;
+          is_active?: boolean;
+          key: string;
+          label: string;
+        };
+        Update: {
+          created_at?: string;
+          display_order?: number;
+          id?: string;
+          is_active?: boolean;
+          key?: string;
+          label?: string;
+        };
+        Relationships: [];
+      };
       areas: {
         Row: {
           boundary: unknown;
@@ -378,6 +405,187 @@ export type Database = {
           },
         ];
       };
+      shelter_acceptances: {
+        Row: {
+          condition_id: string;
+          confirmed_at: string | null;
+          note: string | null;
+          shelter_id: string;
+          status: Database["public"]["Enums"]["acceptance_status"];
+        };
+        Insert: {
+          condition_id: string;
+          confirmed_at?: string | null;
+          note?: string | null;
+          shelter_id: string;
+          status?: Database["public"]["Enums"]["acceptance_status"];
+        };
+        Update: {
+          condition_id?: string;
+          confirmed_at?: string | null;
+          note?: string | null;
+          shelter_id?: string;
+          status?: Database["public"]["Enums"]["acceptance_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shelter_acceptances_condition_id_fkey";
+            columns: ["condition_id"];
+            isOneToOne: false;
+            referencedRelation: "acceptance_conditions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shelter_acceptances_shelter_id_fkey";
+            columns: ["shelter_id"];
+            isOneToOne: false;
+            referencedRelation: "shelters";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shelter_assignments: {
+        Row: {
+          assigned_at: string;
+          household_id: string;
+          is_over_capacity: boolean;
+          party_size: number;
+          shelter_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          assigned_at?: string;
+          household_id: string;
+          is_over_capacity?: boolean;
+          party_size: number;
+          shelter_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          assigned_at?: string;
+          household_id?: string;
+          is_over_capacity?: boolean;
+          party_size?: number;
+          shelter_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shelter_assignments_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: true;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shelter_assignments_shelter_id_fkey";
+            columns: ["shelter_id"];
+            isOneToOne: false;
+            referencedRelation: "shelters";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shelter_hazard_supports: {
+        Row: {
+          hazard_type: Database["public"]["Enums"]["hazard_type"];
+          is_supported: boolean;
+          note: string | null;
+          shelter_id: string;
+        };
+        Insert: {
+          hazard_type: Database["public"]["Enums"]["hazard_type"];
+          is_supported: boolean;
+          note?: string | null;
+          shelter_id: string;
+        };
+        Update: {
+          hazard_type?: Database["public"]["Enums"]["hazard_type"];
+          is_supported?: boolean;
+          note?: string | null;
+          shelter_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shelter_hazard_supports_shelter_id_fkey";
+            columns: ["shelter_id"];
+            isOneToOne: false;
+            referencedRelation: "shelters";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shelters: {
+        Row: {
+          address: string;
+          area_id: string;
+          capacity: number | null;
+          category: Database["public"]["Enums"]["shelter_category"];
+          created_at: string;
+          elevation_m: number | null;
+          external_code: string;
+          floors: number | null;
+          id: string;
+          is_active: boolean;
+          location: unknown;
+          name: string;
+          name_kana: string | null;
+          operator: string | null;
+          phone: string | null;
+          source: string;
+          source_updated_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          address: string;
+          area_id: string;
+          capacity?: number | null;
+          category?: Database["public"]["Enums"]["shelter_category"];
+          created_at?: string;
+          elevation_m?: number | null;
+          external_code: string;
+          floors?: number | null;
+          id?: string;
+          is_active?: boolean;
+          location: unknown;
+          name: string;
+          name_kana?: string | null;
+          operator?: string | null;
+          phone?: string | null;
+          source: string;
+          source_updated_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          address?: string;
+          area_id?: string;
+          capacity?: number | null;
+          category?: Database["public"]["Enums"]["shelter_category"];
+          created_at?: string;
+          elevation_m?: number | null;
+          external_code?: string;
+          floors?: number | null;
+          id?: string;
+          is_active?: boolean;
+          location?: unknown;
+          name?: string;
+          name_kana?: string | null;
+          operator?: string | null;
+          phone?: string | null;
+          source?: string;
+          source_updated_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shelters_area_id_fkey";
+            columns: ["area_id"];
+            isOneToOne: false;
+            referencedRelation: "areas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       users: {
         Row: {
           area_id: string | null;
@@ -430,8 +638,52 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      assign_shelter: {
+        Args: {
+          p_candidate_limit?: number;
+          p_latitude: number;
+          p_longitude: number;
+          p_radius_m?: number;
+        };
+        Returns: {
+          distance_m: number;
+          expected_people: number;
+          is_over_capacity: boolean;
+          party_size: number;
+          shelter_id: string;
+        }[];
+      };
+      import_shelters: {
+        Args: { p_shelters: Json };
+        Returns: {
+          imported_code: string;
+          is_created: boolean;
+        }[];
+      };
       is_household_member: { Args: { target: string }; Returns: boolean };
       is_household_owner: { Args: { target: string }; Returns: boolean };
+      nearby_shelters: {
+        Args: {
+          p_latitude: number;
+          p_limit?: number;
+          p_longitude: number;
+          p_radius_m?: number;
+        };
+        Returns: {
+          address: string;
+          area_id: string;
+          capacity: number;
+          category: Database["public"]["Enums"]["shelter_category"];
+          distance_m: number;
+          elevation_m: number;
+          external_code: string;
+          floors: number;
+          id: string;
+          latitude: number;
+          longitude: number;
+          name: string;
+        }[];
+      };
       setup_user_account: {
         Args: {
           p_age_group?: Database["public"]["Enums"]["age_group"];
@@ -454,6 +706,16 @@ export type Database = {
           user_id: string;
         }[];
       };
+      shelter_loads: {
+        Args: { p_shelter_ids: string[] };
+        Returns: {
+          capacity: number;
+          expected_people: number;
+          household_count: number;
+          occupancy_rate: number;
+          shelter_id: string;
+        }[];
+      };
       update_household_account: {
         Args: {
           p_area_id: string;
@@ -472,6 +734,7 @@ export type Database = {
       };
     };
     Enums: {
+      acceptance_status: "available" | "limited" | "unavailable" | "unknown";
       age_group: "infant" | "child" | "adult" | "senior";
       field_report_type: "road" | "hazard" | "shop" | "other";
       hazard_type:
@@ -492,6 +755,12 @@ export type Database = {
         | "reptile"
         | "other";
       road_condition: "passable" | "caution" | "impassable";
+      shelter_category:
+        | "emergency_site"
+        | "designated_shelter"
+        | "welfare_shelter"
+        | "temporary"
+        | "other";
       status_share_scope: "household" | "family" | "none";
       verification_level: "anonymous" | "email" | "phone";
     };
@@ -624,6 +893,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      acceptance_status: ["available", "limited", "unavailable", "unknown"],
       age_group: ["infant", "child", "adult", "senior"],
       field_report_type: ["road", "hazard", "shop", "other"],
       hazard_type: [
@@ -639,6 +909,13 @@ export const Constants = {
       pet_size: ["small", "medium", "large"],
       pet_species: ["dog", "cat", "small_animal", "bird", "reptile", "other"],
       road_condition: ["passable", "caution", "impassable"],
+      shelter_category: [
+        "emergency_site",
+        "designated_shelter",
+        "welfare_shelter",
+        "temporary",
+        "other",
+      ],
       status_share_scope: ["household", "family", "none"],
       verification_level: ["anonymous", "email", "phone"],
     },
