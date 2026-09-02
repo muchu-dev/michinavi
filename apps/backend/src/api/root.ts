@@ -5,6 +5,7 @@ import { fieldReportRouter } from "./routers/field-report";
 import { fieldReportPhotoRouter } from "./routers/field-report-photo";
 import { healthRouter } from "./routers/health";
 import { householdRouter } from "./routers/household";
+import { memberStatusRouter } from "./routers/member-status";
 import { moderationRouter } from "./routers/moderation";
 import { shelterRouter } from "./routers/shelter";
 import { shelterAssignmentRouter } from "./routers/shelter-assignment";
@@ -22,6 +23,7 @@ export const appRouter = createTRPCRouter({
   fieldReportPhoto: fieldReportPhotoRouter,
   area: areaRouter,
   contentFlag: contentFlagRouter,
+  memberStatus: memberStatusRouter,
   moderation: moderationRouter,
   shelter: shelterRouter,
   shelterAssignment: shelterAssignmentRouter,

@@ -424,6 +424,101 @@ export type Database = {
           },
         ];
       };
+      member_status_events: {
+        Row: {
+          actor_user_id: string | null;
+          created_at: string;
+          household_member_id: string;
+          id: string;
+          mesh_code: string | null;
+          message: string | null;
+          needs_help: boolean;
+          occurred_at: string;
+          source: Database["public"]["Enums"]["member_status_source"];
+          status: Database["public"]["Enums"]["user_status"];
+        };
+        Insert: {
+          actor_user_id?: string | null;
+          created_at?: string;
+          household_member_id: string;
+          id?: string;
+          mesh_code?: string | null;
+          message?: string | null;
+          needs_help?: boolean;
+          occurred_at?: string;
+          source?: Database["public"]["Enums"]["member_status_source"];
+          status: Database["public"]["Enums"]["user_status"];
+        };
+        Update: {
+          actor_user_id?: string | null;
+          created_at?: string;
+          household_member_id?: string;
+          id?: string;
+          mesh_code?: string | null;
+          message?: string | null;
+          needs_help?: boolean;
+          occurred_at?: string;
+          source?: Database["public"]["Enums"]["member_status_source"];
+          status?: Database["public"]["Enums"]["user_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_status_events_actor_user_id_fkey";
+            columns: ["actor_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_status_events_household_member_id_fkey";
+            columns: ["household_member_id"];
+            isOneToOne: false;
+            referencedRelation: "household_members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_statuses: {
+        Row: {
+          household_member_id: string;
+          mesh_code: string | null;
+          mesh_level: Database["public"]["Enums"]["mesh_level"];
+          message: string | null;
+          needs_help: boolean;
+          status: Database["public"]["Enums"]["user_status"];
+          status_updated_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          household_member_id: string;
+          mesh_code?: string | null;
+          mesh_level?: Database["public"]["Enums"]["mesh_level"];
+          message?: string | null;
+          needs_help?: boolean;
+          status?: Database["public"]["Enums"]["user_status"];
+          status_updated_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          household_member_id?: string;
+          mesh_code?: string | null;
+          mesh_level?: Database["public"]["Enums"]["mesh_level"];
+          message?: string | null;
+          needs_help?: boolean;
+          status?: Database["public"]["Enums"]["user_status"];
+          status_updated_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_statuses_household_member_id_fkey";
+            columns: ["household_member_id"];
+            isOneToOne: true;
+            referencedRelation: "household_members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       moderation_actions: {
         Row: {
           action: Database["public"]["Enums"]["moderation_action"];
@@ -761,6 +856,8 @@ export type Database = {
           shelter_id: string;
         }[];
       };
+      can_update_member_status: { Args: { target: string }; Returns: boolean };
+      can_view_member_status: { Args: { target: string }; Returns: boolean };
       import_shelters: {
         Args: { p_shelters: Json };
         Returns: {
@@ -861,6 +958,7 @@ export type Database = {
         | "tsunami"
         | "earthquake"
         | "fire";
+      member_status_source: "self" | "proxy";
       mesh_level: "mesh_1km" | "mesh_500m" | "mesh_250m" | "mesh_125m";
       moderation_action: "hide" | "restore" | "delete" | "warn" | "suspend";
       pet_size: "small" | "medium" | "large";
@@ -880,6 +978,14 @@ export type Database = {
         | "temporary"
         | "other";
       status_share_scope: "household" | "family" | "none";
+      user_status:
+        | "unknown"
+        | "safe_home"
+        | "preparing"
+        | "evacuating"
+        | "at_shelter"
+        | "needs_help"
+        | "safe_other";
       verification_level: "anonymous" | "email" | "phone";
     };
     CompositeTypes: {
@@ -1031,6 +1137,7 @@ export const Constants = {
         "earthquake",
         "fire",
       ],
+      member_status_source: ["self", "proxy"],
       mesh_level: ["mesh_1km", "mesh_500m", "mesh_250m", "mesh_125m"],
       moderation_action: ["hide", "restore", "delete", "warn", "suspend"],
       pet_size: ["small", "medium", "large"],
@@ -1045,6 +1152,15 @@ export const Constants = {
         "other",
       ],
       status_share_scope: ["household", "family", "none"],
+      user_status: [
+        "unknown",
+        "safe_home",
+        "preparing",
+        "evacuating",
+        "at_shelter",
+        "needs_help",
+        "safe_other",
+      ],
       verification_level: ["anonymous", "email", "phone"],
     },
   },
