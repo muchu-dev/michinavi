@@ -1,9 +1,11 @@
 import { createTRPCRouter } from "./init";
 import { areaRouter } from "./routers/area";
+import { contentFlagRouter } from "./routers/content-flag";
 import { fieldReportRouter } from "./routers/field-report";
 import { fieldReportPhotoRouter } from "./routers/field-report-photo";
 import { healthRouter } from "./routers/health";
 import { householdRouter } from "./routers/household";
+import { moderationRouter } from "./routers/moderation";
 import { shelterRouter } from "./routers/shelter";
 import { shelterAssignmentRouter } from "./routers/shelter-assignment";
 import { userRouter } from "./routers/user";
@@ -19,6 +21,8 @@ export const appRouter = createTRPCRouter({
   fieldReport: fieldReportRouter,
   fieldReportPhoto: fieldReportPhotoRouter,
   area: areaRouter,
+  contentFlag: contentFlagRouter,
+  moderation: moderationRouter,
   shelter: shelterRouter,
   shelterAssignment: shelterAssignmentRouter,
 });
