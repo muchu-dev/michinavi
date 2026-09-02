@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { toTRPCError } from "../errors";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../init";
@@ -31,19 +32,24 @@ export const fieldReportRouter = createTRPCRouter({
   create: protectedProcedure
     .input(createInputSchema)
     .mutation(async ({ ctx, input }) => {
+      // 直接 INSERT せず DB 関数を通すのは、レート制限の加算と投稿の保存を
+      // 同じトランザクションで行うためである（BE-23）。上限を超えると
+      // 例外で巻き戻り、加算も投稿もどちらも残らない
       const { data, error } = await ctx.supabase
-        .from("field_reports")
-        .insert({
-          user_id: ctx.user.id,
-          report_type: "road",
-          road_condition: input.roadCondition,
-          mesh_code: input.meshCode,
+        .rpc("create_field_report", {
+          p_mesh_code: input.meshCode,
+          p_road_condition: input.roadCondition,
         })
-        .select()
         .single();
 
       if (error) {
         throw toTRPCError(error, "投稿の保存に失敗しました");
+      }
+      if (!data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "投稿の保存に失敗しました",
+        });
       }
 
       return {

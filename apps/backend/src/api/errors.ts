@@ -39,6 +39,12 @@ export function toTRPCError(
       code: "NOT_FOUND" as const,
       message: "指定された世帯または構成員が見つかりません",
     }))
+    // レート制限（create_field_report の RAISE）
+    .with("P0001", () => ({
+      code: "TOO_MANY_REQUESTS" as const,
+      message:
+        "投稿の回数が上限に達しました。しばらく時間をおいてからお試しください",
+    }))
     // 一意制約違反
     .with("23505", () => ({
       code: "CONFLICT" as const,
