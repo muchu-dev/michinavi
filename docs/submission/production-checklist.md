@@ -75,7 +75,9 @@ pnpm --filter @michinavi/db exec supabase db push
 | `APP_ENV` | `production` |
 | `NEXT_PUBLIC_SUPABASE_URL` | 本番 Supabase の URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 本番の publishable key |
-| `SUPABASE_SECRET_KEY` | 本番の secret key（写真の保存と管理操作で使う） |
+| `SUPABASE_SECRET_KEY` | 本番の secret key（AI推定の保存と管理操作で使う） |
+| `GEMINI_API_KEY` | Google AI Studio の API キー。**未設定でもアプリは動く**が、AIによる道路状態の推定だけが働かない |
+| `GEMINI_MODEL` | 省略可。モデル名を固定したいときだけ設定する |
 
 設定したら **再デプロイする**。環境変数はビルド時に読むため、設定しただけでは反映されない。
 
@@ -104,7 +106,7 @@ curl -s 'https://michinavi.vercel.app/api/trpc/fieldReport.list?input=%7B%22json
 - [ ] `https://michinavi.vercel.app` を開くと `/login` に飛ぶ
 - [ ] 審査用アカウントでログインできる
 - [ ] 地図が表示される
-- [ ] 投稿の一覧が空でない
+- [ ] **「投稿」タブに投稿が表示される（0件になっていない）**
 - [ ] 家族の画面が表示される
 - [ ] シークレットウィンドウでも同じことができる（自分のログイン状態に依存していないか）
 
@@ -114,4 +116,7 @@ curl -s 'https://michinavi.vercel.app/api/trpc/fieldReport.list?input=%7B%22json
   済ませること
 - **`pnpm test` を流すとデモ用データが消える。** デモ用データ投入のテストが後片付けで
   デモアカウントを削除するため、テストの後は `pnpm demo:seed` をやり直す
+- **デモ投稿の位置がずれると投稿画面が0件になる。** 投稿画面は表示中の地点と同じ
+  2次メッシュ（メッシュコードの先頭6桁）で絞り込む。デモ投稿は地図の初期表示位置に
+  合わせてある
 - 本番の secret key を手元のシェル履歴に残さないこと。手順 5 は一度きりでよい
