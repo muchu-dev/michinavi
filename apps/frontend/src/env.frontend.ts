@@ -17,6 +17,10 @@ export const env = createEnv({
   server: {
     APP_ENV: z.enum(["production", "preview", "local"]),
     DEV_AUTH_BYPASS: z.enum(["true", "false"]).default("false"),
+    // 再設定メールに載せるリンクの起点。Supabase の Redirect URLs に
+    // 登録した値と揃える。未設定ならリクエストのホストから組み立てる
+    // （プレビュー配信のようにURLが固定できない環境向け）
+    SITE_URL: z.url().optional(),
   },
   runtimeEnv: {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -24,5 +28,6 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     APP_ENV: process.env.APP_ENV,
     DEV_AUTH_BYPASS: process.env.DEV_AUTH_BYPASS,
+    SITE_URL: process.env.SITE_URL,
   },
 });

@@ -236,7 +236,7 @@ export function ShelterPanel() {
               type="button"
               onClick={useDemoLocation}
               disabled={isUpdatingLocation || nearbyQuery.isFetching}
-              className="inline-flex min-h-6 items-center rounded-full border border-brand bg-brand/10 px-2 text-[0.625rem] font-bold text-brand disabled:opacity-60"
+              className="inline-flex min-h-11 items-center rounded-full border border-brand bg-brand/10 px-3 text-[0.625rem] font-bold text-brand disabled:opacity-60"
             >
               デモ位置
             </button>
@@ -244,7 +244,7 @@ export function ShelterPanel() {
               type="button"
               onClick={updateCurrentLocation}
               disabled={isUpdatingLocation || nearbyQuery.isFetching}
-              className="inline-flex min-h-6 items-center gap-1 rounded-full border border-outline bg-white px-2 text-[0.625rem] font-bold text-muted disabled:opacity-60"
+              className="inline-flex min-h-11 items-center gap-1 rounded-full border border-outline bg-white px-3 text-[0.625rem] font-bold text-muted disabled:opacity-60"
               aria-label="近隣の避難所を更新"
             >
               <span aria-hidden="true">↻</span>
@@ -357,7 +357,7 @@ export function ShelterPanel() {
             <button
               type="button"
               onClick={() => setSelectedShelterId(null)}
-              className="mb-2 inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-black text-brand"
+              className="mb-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-black text-brand"
             >
               <span aria-hidden="true">‹</span>
               一覧へ戻る

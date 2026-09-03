@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import {
-  initialLoginState,
-  type LoginActionState,
-  login,
-} from "@/app/login/actions";
+import { login } from "@/app/login/actions";
+import { initialLoginState, type LoginActionState } from "@/app/login/state";
 
 type LoginAction = (
   state: LoginActionState,
@@ -15,10 +12,16 @@ type LoginAction = (
 
 type LoginFormProps = {
   action?: LoginAction;
+  /** ログイン後に戻る画面。proxy が付けた `next` を検証済みの形で受け取る */
+  nextPath?: string;
   previewHref?: string;
 };
 
-export function LoginForm({ action = login, previewHref }: LoginFormProps) {
+export function LoginForm({
+  action = login,
+  nextPath,
+  previewHref,
+}: LoginFormProps) {
   const [state, formAction, pending] = useActionState(
     action,
     initialLoginState,
@@ -36,6 +39,10 @@ export function LoginForm({ action = login, previewHref }: LoginFormProps) {
       <h1 id="login-title" className="sr-only">
         ログイン
       </h1>
+
+      {nextPath ? (
+        <input defaultValue={nextPath} name="next" type="hidden" />
+      ) : null}
 
       <div className="space-y-1.5">
         <label className="block text-sm font-medium" htmlFor="email">

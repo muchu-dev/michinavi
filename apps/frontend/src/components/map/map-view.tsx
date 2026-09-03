@@ -2,6 +2,14 @@
 
 import dynamic from "next/dynamic";
 
+export type MapReport = {
+  id: string;
+  meshCode: string;
+  roadCondition: "passable" | "caution" | "impassable";
+  createdAt: string;
+};
+
+// Leafletはwindowを利用するため、地図本体だけをクライアント側で読み込む。
 const MapCanvas = dynamic(
   () => import("./map-canvas").then((module) => module.MapCanvas),
   {
@@ -9,7 +17,7 @@ const MapCanvas = dynamic(
     loading: () => (
       <output
         aria-live="polite"
-        className="grid h-full min-h-[30rem] place-items-center bg-app-canvas text-sm font-bold text-muted"
+        className="grid h-full min-h-full place-items-center bg-app-canvas text-sm font-bold text-muted"
       >
         地図を読み込んでいます
       </output>
@@ -17,29 +25,48 @@ const MapCanvas = dynamic(
   },
 );
 
-type MapViewProps = {
-  currentLocation?: { latitude: number; longitude: number } | null;
-  locationLabel?: string;
-  showDemoLocation?: boolean;
-  showLocationControl?: boolean;
-  fillContainer?: boolean;
-};
-
 export function MapView({
+  reports = [],
+  regionName = "倉敷市真備町周辺",
+  center = [34.6383, 133.6903],
+  compact = false,
+  previewPosition = null,
+  onPositionChange,
   currentLocation = null,
   locationLabel,
   showDemoLocation = false,
   showLocationControl = true,
   fillContainer = false,
-}: MapViewProps = {}) {
+}: {
+  reports?: MapReport[];
+  regionName?: string;
+  center?: [number, number];
+  compact?: boolean;
+  previewPosition?: [number, number] | null;
+  onPositionChange?: (position: [number, number]) => void;
+  currentLocation?: { latitude: number; longitude: number } | null;
+  locationLabel?: string;
+  showDemoLocation?: boolean;
+  showLocationControl?: boolean;
+  fillContainer?: boolean;
+}) {
   return (
     <section
-      aria-label="倉敷市真備町周辺の地図"
+      aria-label={`${regionName}の地図`}
       className={`relative flex-1 overflow-hidden bg-app-canvas ${
-        fillContainer ? "h-full min-h-0" : "min-h-[30rem]"
+        fillContainer
+          ? "h-full min-h-0"
+          : compact
+            ? "min-h-52"
+            : "min-h-[30rem]"
       }`}
     >
       <MapCanvas
+        center={center}
+        compact={compact || fillContainer}
+        reports={reports}
+        previewPosition={previewPosition}
+        onPositionChange={onPositionChange}
         currentLocation={currentLocation}
         locationLabel={locationLabel}
         showDemoLocation={showDemoLocation}

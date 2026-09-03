@@ -7,10 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/app/login/actions", () => ({
-  initialLoginState: {},
-  login: vi.fn(),
-}));
+vi.mock("@/app/login/actions", () => ({ login: vi.fn() }));
 
 import { LoginForm } from "./login-form";
 
@@ -50,6 +47,19 @@ describe("LoginForm", () => {
     expect(
       screen.queryByRole("link", { name: "初回設定をプレビュー" }),
     ).toBeNull();
+  });
+
+  it("carries the requested destination through the form", () => {
+    const { container, rerender } = render(
+      <LoginForm action={vi.fn()} nextPath="/family/settings" />,
+    );
+
+    expect(
+      container.querySelector<HTMLInputElement>('input[name="next"]')?.value,
+    ).toBe("/family/settings");
+
+    rerender(<LoginForm action={vi.fn()} />);
+    expect(container.querySelector('input[name="next"]')).toBeNull();
   });
 
   it("associates server validation errors with their inputs", async () => {

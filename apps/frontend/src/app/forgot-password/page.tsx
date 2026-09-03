@@ -1,34 +1,24 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
 
 export const metadata: Metadata = {
   title: "パスワードの再設定",
+  description: "みちナビのパスワードを再設定します。",
 };
 
-export default function ForgotPasswordPage() {
+type ForgotPasswordPageProps = {
+  searchParams: Promise<{ error?: string | string[] }>;
+};
+
+export default async function ForgotPasswordPage({
+  searchParams,
+}: ForgotPasswordPageProps) {
+  // /auth/confirm がリンクの検証に失敗したときに付ける印
+  const linkExpired = (await searchParams).error === "link_expired";
+
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-brand px-4 py-10">
-      <section
-        aria-labelledby="forgot-password-title"
-        className="w-full max-w-sm rounded-xl bg-surface p-6 shadow-card"
-      >
-        <p className="text-sm font-bold text-foreground">みちナビ</p>
-        <h1
-          className="mt-1 text-xl font-black text-foreground"
-          id="forgot-password-title"
-        >
-          パスワードの再設定
-        </h1>
-        <p className="mt-4 text-sm leading-6 text-muted">
-          パスワード再設定機能は現在準備中です。ログイン画面へ戻り、登録した情報をもう一度お確かめください。
-        </p>
-        <Link
-          className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-bold text-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          href="/login"
-        >
-          ログイン画面へ戻る
-        </Link>
-      </section>
+    <main className="flex min-h-dvh flex-col items-center justify-center overflow-x-hidden bg-brand px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2.5rem,env(safe-area-inset-top))] sm:py-12">
+      <ForgotPasswordForm linkExpired={linkExpired} />
     </main>
   );
 }

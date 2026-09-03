@@ -42,6 +42,17 @@ afterEach(() => {
 });
 
 describe("ShelterPanel", () => {
+  it("provides at least 44px tap targets for location controls", () => {
+    render(<ShelterPanel />);
+
+    expect(
+      screen.getByRole("button", { name: "デモ位置" }).className,
+    ).toContain("min-h-11");
+    expect(
+      screen.getByRole("button", { name: "近隣の避難所を更新" }).className,
+    ).toContain("min-h-11");
+  });
+
   it("shows seeded shelters from the explicitly labelled demo location", () => {
     render(<ShelterPanel />);
 
@@ -73,5 +84,17 @@ describe("ShelterPanel", () => {
       expect(screen.getByText(shelter.name)).toBeTruthy();
     }
     expect(externalFetch).not.toHaveBeenCalled();
+  });
+
+  it("provides at least a 44px tap target for returning to the list", () => {
+    render(<ShelterPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "デモ位置" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "第一避難所の詳細を表示" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "一覧へ戻る" }).className,
+    ).toContain("min-h-11");
   });
 });

@@ -243,6 +243,15 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# パスワード再設定メール（BE-08）。
+# 既定のテンプレートは Supabase の /auth/v1/verify を指し、PKCE の code を付けて戻す。
+# それだと別の端末でリンクを開いたときに検証できないため、
+# token_hash をアプリの /auth/confirm へ直接渡す形に差し替える。
+# 本番・プレビューの Supabase プロジェクトでも、ダッシュボードで同じ内容にすること
+[auth.email.template.recovery]
+subject = "みちナビ: パスワードの再設定"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"
