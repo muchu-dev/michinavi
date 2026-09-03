@@ -8,7 +8,6 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/app/reset-password/actions", () => ({
-  initialPasswordUpdateState: {},
   updatePassword: vi.fn(),
 }));
 

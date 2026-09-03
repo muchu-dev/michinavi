@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { updatePassword } from "@/app/reset-password/actions";
 import {
   initialPasswordUpdateState,
   type PasswordUpdateState,
-  updatePassword,
-} from "@/app/reset-password/actions";
+} from "@/app/reset-password/state";
 
 type PasswordUpdateAction = (
   state: PasswordUpdateState,

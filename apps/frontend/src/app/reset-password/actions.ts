@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { DEFAULT_SIGNED_IN_PATH } from "@/lib/auth/redirect-target";
 import { createSupabaseServerActionClient } from "@/lib/supabase/server-action";
+import type { PasswordUpdateState } from "./state";
 
 const updateSchema = z
   .object({
@@ -16,16 +17,6 @@ const updateSchema = z
     error: "確認用のパスワードが一致しません。",
     path: ["passwordConfirmation"],
   });
-
-export type PasswordUpdateState = {
-  fieldErrors?: {
-    password?: string[];
-    passwordConfirmation?: string[];
-  };
-  message?: string;
-};
-
-export const initialPasswordUpdateState: PasswordUpdateState = {};
 
 type AuthErrorLike = {
   code?: string | null;

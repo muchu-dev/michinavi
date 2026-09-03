@@ -5,6 +5,7 @@ import { z } from "zod";
 import { env } from "@/env.frontend";
 import { resolveSiteOrigin } from "@/lib/auth/site-url";
 import { createSupabaseServerActionClient } from "@/lib/supabase/server-action";
+import type { PasswordResetRequestState } from "./state";
 
 /** 再設定メールのリンクを受ける Route Handler */
 const RESET_CALLBACK_PATH = "/auth/confirm";
@@ -19,15 +20,6 @@ const requestSchema = z.object({
     .min(1, { error: "メールアドレスを入力してください。" })
     .pipe(z.email({ error: "有効なメールアドレスを入力してください。" })),
 });
-
-export type PasswordResetRequestState = {
-  fieldErrors?: { email?: string[] };
-  message?: string;
-  status?: "sent" | "error";
-  values?: { email: string };
-};
-
-export const initialPasswordResetRequestState: PasswordResetRequestState = {};
 
 const SENT_MESSAGE =
   "入力されたメールアドレス宛に再設定用のリンクを送りました。メールをご確認ください。";

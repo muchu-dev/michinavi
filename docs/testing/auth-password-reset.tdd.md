@@ -54,6 +54,26 @@
 | lint | `mise exec -- pnpm lint` | PASS: Biome 136ファイル、`tsgo --noEmit` 4パッケージ |
 | build | `mise exec -- pnpm build` | PASS: Turbopack。`/auth/confirm` と `/reset-password` を認識、`Proxy (Middleware)` あり |
 
+## ローカルの実機確認（2026-09-03 追記）
+
+`pnpm db:start` と `pnpm demo:seed` を済ませたローカル環境で、ブラウザから通しで確認した。
+
+| 確認 | 結果 |
+| --- | --- |
+| `demo-sato@michinavi.example` でログイン | 成功。`/` のトップ画面まで到達 |
+| `/forgot-password` から送信 | 「再設定用のリンクを送りました」を表示 |
+| `/auth/confirm?token_hash=…&type=recovery` | 検証に成功し `/reset-password` へ遷移 |
+| `/reset-password` に現在と同じパスワードを送信 | `same_password` を「現在のパスワードと同じです」に変換して表示 |
+
+この過程で、`"use server"` のファイルが async 関数以外を export できない制約に触れる書き方が
+見つかったため修正した（`A "use server" file can only export async functions, found object.`）。
+`initialLoginState` などのフォーム初期値を `actions.ts` から `state.ts` へ移している。
+`initialLoginState` の const export は origin/main の時点から入っていたもので、
+ビルドとユニットテストでは検出できず、Server Action を実際に呼んだときだけ落ちていた。
+
+未確認のまま残るのは、パスワード変更の**成功**経路である。
+デモ用アカウントの資格情報を壊さないよう、同じパスワードを送る形で確認を止めた。
+
 ## 未確認と申し送り
 
 - 実際の Supabase を使った通しの確認（メール受信、`verifyOtp`、Cookie発行）は未実施。

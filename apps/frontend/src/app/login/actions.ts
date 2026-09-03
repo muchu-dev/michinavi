@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { resolveRedirectPath } from "@/lib/auth/redirect-target";
 import { createSupabaseServerActionClient } from "@/lib/supabase/server-action";
+import type { LoginActionState } from "./state";
 
 const loginSchema = z.object({
   email: z
@@ -13,17 +14,6 @@ const loginSchema = z.object({
     .pipe(z.email({ error: "有効なメールアドレスを入力してください。" })),
   password: z.string().min(1, { error: "パスワードを入力してください。" }),
 });
-
-export type LoginActionState = {
-  fieldErrors?: {
-    email?: string[];
-    password?: string[];
-  };
-  message?: string;
-  values?: { email: string; next?: string };
-};
-
-export const initialLoginState: LoginActionState = {};
 
 /** Supabase が返す認証エラー。SDK の型に依存せず、見る値だけを書き出す */
 type AuthErrorLike = {

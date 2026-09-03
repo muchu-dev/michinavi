@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import {
-  initialLoginState,
-  type LoginActionState,
-  login,
-} from "@/app/login/actions";
+import { login } from "@/app/login/actions";
+import { initialLoginState, type LoginActionState } from "@/app/login/state";
 
 type LoginAction = (
   state: LoginActionState,

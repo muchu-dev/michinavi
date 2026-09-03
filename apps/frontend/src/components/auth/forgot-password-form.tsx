@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { requestPasswordReset } from "@/app/forgot-password/actions";
 import {
   initialPasswordResetRequestState,
   type PasswordResetRequestState,
-  requestPasswordReset,
-} from "@/app/forgot-password/actions";
+} from "@/app/forgot-password/state";
 
 type PasswordResetRequestAction = (
   state: PasswordResetRequestState,

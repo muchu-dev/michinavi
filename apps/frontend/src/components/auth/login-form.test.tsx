@@ -7,10 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/app/login/actions", () => ({
-  initialLoginState: {},
-  login: vi.fn(),
-}));
+vi.mock("@/app/login/actions", () => ({ login: vi.fn() }));
 
 import { LoginForm } from "./login-form";
 
