@@ -8,6 +8,7 @@ import { healthRouter } from "./routers/health";
 import { householdRouter } from "./routers/household";
 import { memberStatusRouter } from "./routers/member-status";
 import { moderationRouter } from "./routers/moderation";
+import { reportDigestRouter } from "./routers/report-digest";
 import { roadStatusRouter } from "./routers/road-status";
 import { shelterRouter } from "./routers/shelter";
 import { shelterAssignmentRouter } from "./routers/shelter-assignment";
@@ -28,6 +29,7 @@ export const appRouter = createTRPCRouter({
   fallback: fallbackRouter,
   memberStatus: memberStatusRouter,
   moderation: moderationRouter,
+  reportDigest: reportDigestRouter,
   roadStatus: roadStatusRouter,
   shelter: shelterRouter,
   shelterAssignment: shelterAssignmentRouter,
