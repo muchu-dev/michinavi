@@ -55,13 +55,25 @@ jobs:
       - name: Link project
         run: pnpm --filter @michinavi/db exec supabase link --project-ref "$SUPABASE_PROJECT_ID"
 
-      # 何が流れるかをログに残してから適用する
+      # 何が流れるかをログに残してから適用する。
+      #
+      # --include-all を付けるのは、リモートに入っている最後の
+      # マイグレーションより古い版番号のファイルが、あとから main に
+      # 入ってくるためである。タスクごとに版番号を決めて枝を切り、
+      # マージの順番はレビューの都合で前後するので、
+      # 「版番号の順 = 適用の順」にはならない。
+      # 付けないと未適用のまま素通りするのではなく、CLI が止まる。
+      #
+      # 前提として、割り込む側のマイグレーションが、すでに当たっている
+      # あとの版番号のものに依存していないこと。依存が要るときは
+      # 版番号を振り直す（そうしないと db reset で作った DB と
+      # リモートの形が食い違う）
       - name: Plan
-        run: pnpm --filter @michinavi/db exec supabase db push --dry-run
+        run: pnpm --filter @michinavi/db exec supabase db push --dry-run --include-all
 
       # seed.sql は on conflict do nothing で書いてあるので、毎回流しても増えない
       - name: Apply migrations and seed
-        run: pnpm --filter @michinavi/db exec supabase db push --include-seed --yes
+        run: pnpm --filter @michinavi/db exec supabase db push --include-seed --include-all --yes
 
   demo-seed:
     name: Demo seed
