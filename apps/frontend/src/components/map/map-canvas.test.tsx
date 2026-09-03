@@ -10,8 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { setView } = vi.hoisted(() => ({ setView: vi.fn() }));
 
+const createDivIcon = vi.hoisted(() => vi.fn((options: unknown) => options));
+
 vi.mock("leaflet", () => ({
-  divIcon: (options: unknown) => options,
+  divIcon: createDivIcon,
 }));
 
 vi.mock("react-leaflet", () => ({
@@ -139,7 +141,7 @@ describe("MapCanvas", () => {
   });
 
   it("previews the post bubble at the center of its saved mesh", () => {
-    render(<MapCanvas selectedPosition={[35.6812, 139.7671]} />);
+    render(<MapCanvas previewPosition={[35.6812, 139.7671]} />);
 
     const preview = screen.getByTestId("report-marker");
     expect(preview.getAttribute("data-position")).toBe(
@@ -162,7 +164,7 @@ describe("MapCanvas", () => {
             createdAt: "2026-08-29T01:00:00.000Z",
           },
         ]}
-        selectedPosition={[35.6812, 139.7671]}
+        previewPosition={[35.6812, 139.7671]}
       />,
     );
 

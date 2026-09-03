@@ -25,6 +25,23 @@ export type SupabaseConnection = {
   publishableKey: string;
 };
 
+/**
+ * RLS を迂回する service role クライアントを作る。
+ * マスタ取り込み、AI 出力の保存など、限られた用途にだけ使う
+ * （docs/er/00-conventions.md#db-クライアントの使い分け）。
+ *
+ * アプリ側でこの関数を呼ぶ場所は 1 ファイルに絞ること。
+ * 呼び出し元を広げると、RLS を迂回できる経路がどこにあるか追えなくなる。
+ */
+export function createServiceRoleClient(connection: {
+  url: string;
+  secretKey: string;
+}): RequestSupabaseClient {
+  return createClient<Database>(connection.url, connection.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 const BEARER_PATTERN = /^Bearer\s+(.+)$/i;
 
 /**

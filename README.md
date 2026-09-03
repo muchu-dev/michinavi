@@ -41,6 +41,16 @@ michinavi/
 └── docs/          ドキュメント
 ```
 
+### 認証を迂回して画面を確認する
+
+Supabaseを起動せず、認証後の画面だけをローカルで確認する場合は、`apps/frontend/.env.local`に次を設定して`pnpm dev`を実行します。
+
+```dotenv
+DEV_AUTH_BYPASS="true"
+```
+
+認証の迂回は、Next.jsの開発モードかつ`APP_ENV=local`の場合だけ有効です。preview・productionでは`DEV_AUTH_BYPASS=true`が設定されていても有効になりません。実際のログイン動作や権限は、`DEV_AUTH_BYPASS="false"`に戻した`pnpm dev`とローカルSupabaseで確認してください。
+
 ## 開発タスク
 
 Google Sheets のタスク正本をローカルで確認・差分検出できます。
@@ -88,6 +98,29 @@ pnpm db --help                                  # supabase CLI へそのまま�
 pnpm --filter @michinavi/db migration:new <名前>  # 空のマイグレーションを作る
 pnpm --filter @michinavi/db diff -f <名前>        # DB との差分をマイグレーションに書き出す
 ```
+
+## 本番DBへの反映
+
+`main` にマージされると GitHub Actions（[deploy-db.yml](.github/workflows/deploy-db.yml)）が
+共有の Supabase プロジェクトへマイグレーションと seed を流します。
+Vercel のビルドからは流しません。ビルドは PR ごとの preview でも走るため、
+未マージのマイグレーションが同じ DB に当たってしまうためです。
+
+走るのは `packages/db/**` か `apps/backend/src/demo/**` を含むマージのときだけです。
+手で流したいときは Actions タブから `Deploy DB` を実行してください。
+
+必要な Secrets（Settings > Secrets and variables > Actions）:
+
+| 名前 | 取得元 |
+| --- | --- |
+| `SUPABASE_ACCESS_TOKEN` | Supabase の [Account > Access Tokens](https://supabase.com/dashboard/account/tokens) |
+| `SUPABASE_DB_PASSWORD` | プロジェクトの Settings > Database |
+| `SUPABASE_PROJECT_ID` | プロジェクトの参照ID（`https://<ここ>.supabase.co`） |
+| `SUPABASE_SECRET_KEY` | Settings > API Keys の secret キー（デモ投入のみ） |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Settings > API Keys の publishable キー（デモ投入のみ） |
+
+デモ用アカウントの投入は、リポジトリ変数 `DEMO_SEED_ENABLED` を `true` にしたときだけ動きます。
+既知のパスワードを持つアカウントが本番に並ぶため、実利用を始める前に `false` へ戻してください。
 
 ## テスト
 

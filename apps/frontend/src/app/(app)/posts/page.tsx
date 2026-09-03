@@ -6,8 +6,8 @@ import { toQuarterMeshCode } from "@/lib/location/mesh-code";
 import { api } from "@/lib/trpc/client";
 
 const REPORT_REGION = {
-  name: "千代田区周辺",
-  center: [35.6938, 139.753] as [number, number],
+  name: "倉敷市真備町周辺",
+  center: [34.6383, 133.6903] as [number, number],
 };
 
 // 道路の通行状態を表す画面内の選択値
@@ -42,6 +42,9 @@ export default function PostsPage() {
     null,
   );
   const [mapPosition, setMapPosition] = useState<[number, number] | null>(null);
+  const [previewPosition, setPreviewPosition] = useState<
+    [number, number] | null
+  >(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,6 +100,7 @@ export default function PostsPage() {
     setSuccessMessage(null);
     setSubmitError(null);
     setDraftPosition(mapPosition);
+    setPreviewPosition(mapPosition);
     setView("report");
   };
 
@@ -106,6 +110,7 @@ export default function PostsPage() {
     setExpanded(null);
     setHazard(null);
     setDraftPosition(null);
+    setPreviewPosition(null);
     setSubmitError(null);
     setView("map");
   };
@@ -136,6 +141,7 @@ export default function PostsPage() {
       setExpanded(null);
       setHazard(null);
       setDraftPosition(null);
+      setPreviewPosition(null);
       setView("map");
     } catch (error) {
       setSubmitError(getSubmitErrorMessage(error));
@@ -199,7 +205,7 @@ export default function PostsPage() {
           center={REPORT_REGION.center}
           regionName={displayedRegionName}
           reports={visibleReports}
-          selectedPosition={mapPosition}
+          previewPosition={previewPosition}
           onPositionChange={setMapPosition}
         />
 
@@ -404,7 +410,9 @@ function ConditionCard({
         : "border-impassable bg-impassable";
   return (
     <section
-      className={`overflow-hidden rounded-xl border-2 bg-white transition-colors ${expanded ? colorClass : "border-transparent"}`}
+      className={`overflow-hidden rounded-xl border-2 bg-white transition-[box-shadow] ${
+        selected ? "ring-4 ring-ink/20" : ""
+      } ${expanded ? colorClass : "border-transparent"}`}
     >
       <div
         className={`flex min-h-[4.5rem] items-center text-white ${colorClass}`}
@@ -414,14 +422,24 @@ function ConditionCard({
             type="radio"
             name="road-condition"
             value={condition}
+            aria-label={label}
             checked={selected}
             onChange={onClick}
             className="sr-only"
           />
           <ConditionIcon condition={condition} />
           <span className="text-base font-black">{label}</span>
+          {selected && (
+            <span
+              aria-hidden="true"
+              className="ml-auto inline-flex items-center gap-1 rounded-full border-2 border-white bg-white px-2 py-1 text-[0.6875rem] font-black text-ink"
+            >
+              <span className="text-sm">✓</span>
+              選択中
+            </span>
+          )}
           {selectedHazard ? (
-            <span className="ml-auto grid size-10 place-items-center rounded-lg bg-brand text-white">
+            <span className="grid size-10 place-items-center rounded-lg bg-brand text-white">
               <span className="sr-only">
                 {hazards.find((item) => item.type === selectedHazard)?.label}
               </span>

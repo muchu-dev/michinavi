@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      acceptance_conditions: {
+        Row: {
+          created_at: string;
+          display_order: number;
+          id: string;
+          is_active: boolean;
+          key: string;
+          label: string;
+        };
+        Insert: {
+          created_at?: string;
+          display_order?: number;
+          id?: string;
+          is_active?: boolean;
+          key: string;
+          label: string;
+        };
+        Update: {
+          created_at?: string;
+          display_order?: number;
+          id?: string;
+          is_active?: boolean;
+          key?: string;
+          label?: string;
+        };
+        Relationships: [];
+      };
       areas: {
         Row: {
           boundary: unknown;
@@ -83,6 +110,110 @@ export type Database = {
         };
         Relationships: [];
       };
+      content_flags: {
+        Row: {
+          created_at: string;
+          detail: string | null;
+          id: string;
+          reason: Database["public"]["Enums"]["flag_reason"];
+          reporter_user_id: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          status: Database["public"]["Enums"]["flag_status"];
+          target_id: string;
+          target_type: Database["public"]["Enums"]["flag_target_type"];
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          detail?: string | null;
+          id?: string;
+          reason: Database["public"]["Enums"]["flag_reason"];
+          reporter_user_id: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          status?: Database["public"]["Enums"]["flag_status"];
+          target_id: string;
+          target_type: Database["public"]["Enums"]["flag_target_type"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          detail?: string | null;
+          id?: string;
+          reason?: Database["public"]["Enums"]["flag_reason"];
+          reporter_user_id?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          status?: Database["public"]["Enums"]["flag_status"];
+          target_id?: string;
+          target_type?: Database["public"]["Enums"]["flag_target_type"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "content_flags_reporter_user_id_fkey";
+            columns: ["reporter_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "content_flags_resolved_by_fkey";
+            columns: ["resolved_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      field_report_photos: {
+        Row: {
+          byte_size: number;
+          created_at: string;
+          exif_stripped: boolean;
+          field_report_id: string;
+          height: number | null;
+          id: string;
+          mime_type: string;
+          processed_at: string | null;
+          storage_path: string;
+          width: number | null;
+        };
+        Insert: {
+          byte_size: number;
+          created_at?: string;
+          exif_stripped?: boolean;
+          field_report_id: string;
+          height?: number | null;
+          id?: string;
+          mime_type: string;
+          processed_at?: string | null;
+          storage_path: string;
+          width?: number | null;
+        };
+        Update: {
+          byte_size?: number;
+          created_at?: string;
+          exif_stripped?: boolean;
+          field_report_id?: string;
+          height?: number | null;
+          id?: string;
+          mime_type?: string;
+          processed_at?: string | null;
+          storage_path?: string;
+          width?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "field_report_photos_field_report_id_fkey";
+            columns: ["field_report_id"];
+            isOneToOne: false;
+            referencedRelation: "field_reports";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       field_reports: {
         Row: {
           created_at: string;
@@ -93,6 +224,7 @@ export type Database = {
           mesh_level: Database["public"]["Enums"]["mesh_level"];
           report_type: Database["public"]["Enums"]["field_report_type"];
           road_condition: Database["public"]["Enums"]["road_condition"] | null;
+          status: Database["public"]["Enums"]["report_status"];
           updated_at: string;
           user_id: string;
         };
@@ -105,6 +237,7 @@ export type Database = {
           mesh_level?: Database["public"]["Enums"]["mesh_level"];
           report_type?: Database["public"]["Enums"]["field_report_type"];
           road_condition?: Database["public"]["Enums"]["road_condition"] | null;
+          status?: Database["public"]["Enums"]["report_status"];
           updated_at?: string;
           user_id: string;
         };
@@ -117,6 +250,7 @@ export type Database = {
           mesh_level?: Database["public"]["Enums"]["mesh_level"];
           report_type?: Database["public"]["Enums"]["field_report_type"];
           road_condition?: Database["public"]["Enums"]["road_condition"] | null;
+          status?: Database["public"]["Enums"]["report_status"];
           updated_at?: string;
           user_id?: string;
         };
@@ -290,6 +424,149 @@ export type Database = {
           },
         ];
       };
+      member_status_events: {
+        Row: {
+          actor_user_id: string | null;
+          created_at: string;
+          household_member_id: string;
+          id: string;
+          mesh_code: string | null;
+          message: string | null;
+          needs_help: boolean;
+          occurred_at: string;
+          source: Database["public"]["Enums"]["member_status_source"];
+          status: Database["public"]["Enums"]["user_status"];
+        };
+        Insert: {
+          actor_user_id?: string | null;
+          created_at?: string;
+          household_member_id: string;
+          id?: string;
+          mesh_code?: string | null;
+          message?: string | null;
+          needs_help?: boolean;
+          occurred_at?: string;
+          source?: Database["public"]["Enums"]["member_status_source"];
+          status: Database["public"]["Enums"]["user_status"];
+        };
+        Update: {
+          actor_user_id?: string | null;
+          created_at?: string;
+          household_member_id?: string;
+          id?: string;
+          mesh_code?: string | null;
+          message?: string | null;
+          needs_help?: boolean;
+          occurred_at?: string;
+          source?: Database["public"]["Enums"]["member_status_source"];
+          status?: Database["public"]["Enums"]["user_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_status_events_actor_user_id_fkey";
+            columns: ["actor_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_status_events_household_member_id_fkey";
+            columns: ["household_member_id"];
+            isOneToOne: false;
+            referencedRelation: "household_members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_statuses: {
+        Row: {
+          household_member_id: string;
+          mesh_code: string | null;
+          mesh_level: Database["public"]["Enums"]["mesh_level"];
+          message: string | null;
+          needs_help: boolean;
+          status: Database["public"]["Enums"]["user_status"];
+          status_updated_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          household_member_id: string;
+          mesh_code?: string | null;
+          mesh_level?: Database["public"]["Enums"]["mesh_level"];
+          message?: string | null;
+          needs_help?: boolean;
+          status?: Database["public"]["Enums"]["user_status"];
+          status_updated_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          household_member_id?: string;
+          mesh_code?: string | null;
+          mesh_level?: Database["public"]["Enums"]["mesh_level"];
+          message?: string | null;
+          needs_help?: boolean;
+          status?: Database["public"]["Enums"]["user_status"];
+          status_updated_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_statuses_household_member_id_fkey";
+            columns: ["household_member_id"];
+            isOneToOne: true;
+            referencedRelation: "household_members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      moderation_actions: {
+        Row: {
+          action: Database["public"]["Enums"]["moderation_action"];
+          content_flag_id: string | null;
+          created_at: string;
+          id: string;
+          moderator_user_id: string;
+          reason: string;
+          target_id: string;
+          target_type: Database["public"]["Enums"]["flag_target_type"];
+        };
+        Insert: {
+          action: Database["public"]["Enums"]["moderation_action"];
+          content_flag_id?: string | null;
+          created_at?: string;
+          id?: string;
+          moderator_user_id: string;
+          reason: string;
+          target_id: string;
+          target_type: Database["public"]["Enums"]["flag_target_type"];
+        };
+        Update: {
+          action?: Database["public"]["Enums"]["moderation_action"];
+          content_flag_id?: string | null;
+          created_at?: string;
+          id?: string;
+          moderator_user_id?: string;
+          reason?: string;
+          target_id?: string;
+          target_type?: Database["public"]["Enums"]["flag_target_type"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "moderation_actions_content_flag_id_fkey";
+            columns: ["content_flag_id"];
+            isOneToOne: false;
+            referencedRelation: "content_flags";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "moderation_actions_moderator_user_id_fkey";
+            columns: ["moderator_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       pets: {
         Row: {
           count: number;
@@ -327,6 +604,273 @@ export type Database = {
             columns: ["household_id"];
             isOneToOne: false;
             referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      rate_limit_counters: {
+        Row: {
+          action: Database["public"]["Enums"]["rate_limit_action"];
+          count: number;
+          scope: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at: string;
+          user_id: string;
+          window_start: string;
+        };
+        Insert: {
+          action: Database["public"]["Enums"]["rate_limit_action"];
+          count?: number;
+          scope: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at?: string;
+          user_id: string;
+          window_start: string;
+        };
+        Update: {
+          action?: Database["public"]["Enums"]["rate_limit_action"];
+          count?: number;
+          scope?: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at?: string;
+          user_id?: string;
+          window_start?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rate_limit_counters_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      rate_limits: {
+        Row: {
+          action: Database["public"]["Enums"]["rate_limit_action"];
+          level: Database["public"]["Enums"]["verification_level"];
+          max_count: number;
+          scope: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at: string;
+        };
+        Insert: {
+          action: Database["public"]["Enums"]["rate_limit_action"];
+          level: Database["public"]["Enums"]["verification_level"];
+          max_count: number;
+          scope: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at?: string;
+        };
+        Update: {
+          action?: Database["public"]["Enums"]["rate_limit_action"];
+          level?: Database["public"]["Enums"]["verification_level"];
+          max_count?: number;
+          scope?: Database["public"]["Enums"]["rate_limit_scope"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      road_status_estimates: {
+        Row: {
+          confidence: Database["public"]["Enums"]["ai_confidence"];
+          mesh_code: string;
+          reasoning: string;
+          report_count: number;
+          road_condition: Database["public"]["Enums"]["road_condition"];
+          updated_at: string;
+        };
+        Insert: {
+          confidence: Database["public"]["Enums"]["ai_confidence"];
+          mesh_code: string;
+          reasoning: string;
+          report_count: number;
+          road_condition: Database["public"]["Enums"]["road_condition"];
+          updated_at?: string;
+        };
+        Update: {
+          confidence?: Database["public"]["Enums"]["ai_confidence"];
+          mesh_code?: string;
+          reasoning?: string;
+          report_count?: number;
+          road_condition?: Database["public"]["Enums"]["road_condition"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shelter_acceptances: {
+        Row: {
+          condition_id: string;
+          confirmed_at: string | null;
+          note: string | null;
+          shelter_id: string;
+          status: Database["public"]["Enums"]["acceptance_status"];
+        };
+        Insert: {
+          condition_id: string;
+          confirmed_at?: string | null;
+          note?: string | null;
+          shelter_id: string;
+          status?: Database["public"]["Enums"]["acceptance_status"];
+        };
+        Update: {
+          condition_id?: string;
+          confirmed_at?: string | null;
+          note?: string | null;
+          shelter_id?: string;
+          status?: Database["public"]["Enums"]["acceptance_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shelter_acceptances_condition_id_fkey";
+            columns: ["condition_id"];
+            isOneToOne: false;
+            referencedRelation: "acceptance_conditions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shelter_acceptances_shelter_id_fkey";
+            columns: ["shelter_id"];
+            isOneToOne: false;
+            referencedRelation: "shelters";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shelter_assignments: {
+        Row: {
+          assigned_at: string;
+          household_id: string;
+          is_over_capacity: boolean;
+          party_size: number;
+          shelter_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          assigned_at?: string;
+          household_id: string;
+          is_over_capacity?: boolean;
+          party_size: number;
+          shelter_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          assigned_at?: string;
+          household_id?: string;
+          is_over_capacity?: boolean;
+          party_size?: number;
+          shelter_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shelter_assignments_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: true;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shelter_assignments_shelter_id_fkey";
+            columns: ["shelter_id"];
+            isOneToOne: false;
+            referencedRelation: "shelters";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shelter_hazard_supports: {
+        Row: {
+          hazard_type: Database["public"]["Enums"]["hazard_type"];
+          is_supported: boolean;
+          note: string | null;
+          shelter_id: string;
+        };
+        Insert: {
+          hazard_type: Database["public"]["Enums"]["hazard_type"];
+          is_supported: boolean;
+          note?: string | null;
+          shelter_id: string;
+        };
+        Update: {
+          hazard_type?: Database["public"]["Enums"]["hazard_type"];
+          is_supported?: boolean;
+          note?: string | null;
+          shelter_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shelter_hazard_supports_shelter_id_fkey";
+            columns: ["shelter_id"];
+            isOneToOne: false;
+            referencedRelation: "shelters";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shelters: {
+        Row: {
+          address: string;
+          area_id: string;
+          capacity: number | null;
+          category: Database["public"]["Enums"]["shelter_category"];
+          created_at: string;
+          elevation_m: number | null;
+          external_code: string;
+          floors: number | null;
+          id: string;
+          is_active: boolean;
+          location: unknown;
+          name: string;
+          name_kana: string | null;
+          operator: string | null;
+          phone: string | null;
+          source: string;
+          source_updated_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          address: string;
+          area_id: string;
+          capacity?: number | null;
+          category?: Database["public"]["Enums"]["shelter_category"];
+          created_at?: string;
+          elevation_m?: number | null;
+          external_code: string;
+          floors?: number | null;
+          id?: string;
+          is_active?: boolean;
+          location: unknown;
+          name: string;
+          name_kana?: string | null;
+          operator?: string | null;
+          phone?: string | null;
+          source: string;
+          source_updated_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          address?: string;
+          area_id?: string;
+          capacity?: number | null;
+          category?: Database["public"]["Enums"]["shelter_category"];
+          created_at?: string;
+          elevation_m?: number | null;
+          external_code?: string;
+          floors?: number | null;
+          id?: string;
+          is_active?: boolean;
+          location?: unknown;
+          name?: string;
+          name_kana?: string | null;
+          operator?: string | null;
+          phone?: string | null;
+          source?: string;
+          source_updated_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shelters_area_id_fkey";
+            columns: ["area_id"];
+            isOneToOne: false;
+            referencedRelation: "areas";
             referencedColumns: ["id"];
           },
         ];
@@ -383,8 +927,67 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      assign_shelter: {
+        Args: {
+          p_candidate_limit?: number;
+          p_latitude: number;
+          p_longitude: number;
+          p_radius_m?: number;
+        };
+        Returns: {
+          distance_m: number;
+          expected_people: number;
+          is_over_capacity: boolean;
+          party_size: number;
+          shelter_id: string;
+        }[];
+      };
+      can_update_member_status: { Args: { target: string }; Returns: boolean };
+      can_view_member_status: { Args: { target: string }; Returns: boolean };
+      create_field_report: {
+        Args: {
+          p_mesh_code: string;
+          p_road_condition: Database["public"]["Enums"]["road_condition"];
+        };
+        Returns: {
+          created_at: string;
+          id: string;
+          mesh_code: string;
+          road_condition: Database["public"]["Enums"]["road_condition"];
+        }[];
+      };
+      import_shelters: {
+        Args: { p_shelters: Json };
+        Returns: {
+          imported_code: string;
+          is_created: boolean;
+        }[];
+      };
       is_household_member: { Args: { target: string }; Returns: boolean };
       is_household_owner: { Args: { target: string }; Returns: boolean };
+      is_moderator: { Args: never; Returns: boolean };
+      nearby_shelters: {
+        Args: {
+          p_latitude: number;
+          p_limit?: number;
+          p_longitude: number;
+          p_radius_m?: number;
+        };
+        Returns: {
+          address: string;
+          area_id: string;
+          capacity: number;
+          category: Database["public"]["Enums"]["shelter_category"];
+          distance_m: number;
+          elevation_m: number;
+          external_code: string;
+          floors: number;
+          id: string;
+          latitude: number;
+          longitude: number;
+          name: string;
+        }[];
+      };
       setup_user_account: {
         Args: {
           p_age_group?: Database["public"]["Enums"]["age_group"];
@@ -407,6 +1010,16 @@ export type Database = {
           user_id: string;
         }[];
       };
+      shelter_loads: {
+        Args: { p_shelter_ids: string[] };
+        Returns: {
+          capacity: number;
+          expected_people: number;
+          household_count: number;
+          occupancy_rate: number;
+          shelter_id: string;
+        }[];
+      };
       update_household_account: {
         Args: {
           p_area_id: string;
@@ -425,8 +1038,17 @@ export type Database = {
       };
     };
     Enums: {
+      acceptance_status: "available" | "limited" | "unavailable" | "unknown";
       age_group: "infant" | "child" | "adult" | "senior";
+      ai_confidence: "high" | "medium" | "low";
       field_report_type: "road" | "hazard" | "shop" | "other";
+      flag_reason: "false_info" | "privacy" | "spam" | "abuse" | "other";
+      flag_status: "open" | "reviewing" | "actioned" | "dismissed";
+      flag_target_type:
+        | "field_report"
+        | "community_post"
+        | "community_comment"
+        | "user";
       hazard_type:
         | "flood"
         | "inland_flood"
@@ -435,7 +1057,9 @@ export type Database = {
         | "tsunami"
         | "earthquake"
         | "fire";
+      member_status_source: "self" | "proxy";
       mesh_level: "mesh_1km" | "mesh_500m" | "mesh_250m" | "mesh_125m";
+      moderation_action: "hide" | "restore" | "delete" | "warn" | "suspend";
       pet_size: "small" | "medium" | "large";
       pet_species:
         | "dog"
@@ -444,8 +1068,29 @@ export type Database = {
         | "bird"
         | "reptile"
         | "other";
+      rate_limit_action:
+        | "field_report"
+        | "confirmation"
+        | "community_post"
+        | "content_flag";
+      rate_limit_scope: "hour" | "day";
+      report_status: "active" | "resolved" | "expired" | "hidden";
       road_condition: "passable" | "caution" | "impassable";
+      shelter_category:
+        | "emergency_site"
+        | "designated_shelter"
+        | "welfare_shelter"
+        | "temporary"
+        | "other";
       status_share_scope: "household" | "family" | "none";
+      user_status:
+        | "unknown"
+        | "safe_home"
+        | "preparing"
+        | "evacuating"
+        | "at_shelter"
+        | "needs_help"
+        | "safe_other";
       verification_level: "anonymous" | "email" | "phone";
     };
     CompositeTypes: {
@@ -577,8 +1222,18 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      acceptance_status: ["available", "limited", "unavailable", "unknown"],
       age_group: ["infant", "child", "adult", "senior"],
+      ai_confidence: ["high", "medium", "low"],
       field_report_type: ["road", "hazard", "shop", "other"],
+      flag_reason: ["false_info", "privacy", "spam", "abuse", "other"],
+      flag_status: ["open", "reviewing", "actioned", "dismissed"],
+      flag_target_type: [
+        "field_report",
+        "community_post",
+        "community_comment",
+        "user",
+      ],
       hazard_type: [
         "flood",
         "inland_flood",
@@ -588,11 +1243,37 @@ export const Constants = {
         "earthquake",
         "fire",
       ],
+      member_status_source: ["self", "proxy"],
       mesh_level: ["mesh_1km", "mesh_500m", "mesh_250m", "mesh_125m"],
+      moderation_action: ["hide", "restore", "delete", "warn", "suspend"],
       pet_size: ["small", "medium", "large"],
       pet_species: ["dog", "cat", "small_animal", "bird", "reptile", "other"],
+      rate_limit_action: [
+        "field_report",
+        "confirmation",
+        "community_post",
+        "content_flag",
+      ],
+      rate_limit_scope: ["hour", "day"],
+      report_status: ["active", "resolved", "expired", "hidden"],
       road_condition: ["passable", "caution", "impassable"],
+      shelter_category: [
+        "emergency_site",
+        "designated_shelter",
+        "welfare_shelter",
+        "temporary",
+        "other",
+      ],
       status_share_scope: ["household", "family", "none"],
+      user_status: [
+        "unknown",
+        "safe_home",
+        "preparing",
+        "evacuating",
+        "at_shelter",
+        "needs_help",
+        "safe_other",
+      ],
       verification_level: ["anonymous", "email", "phone"],
     },
   },

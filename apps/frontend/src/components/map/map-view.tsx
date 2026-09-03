@@ -27,17 +27,17 @@ const MapCanvas = dynamic(
 
 export function MapView({
   reports = [],
-  regionName = "東川町周辺",
-  center = [43.6969, 142.5104],
+  regionName = "倉敷市真備町周辺",
+  center = [34.6383, 133.6903],
   compact = false,
-  selectedPosition = null,
+  previewPosition = null,
   onPositionChange,
 }: {
   reports?: MapReport[];
   regionName?: string;
   center?: [number, number];
   compact?: boolean;
-  selectedPosition?: [number, number] | null;
+  previewPosition?: [number, number] | null;
   onPositionChange?: (position: [number, number]) => void;
 }) {
   return (
@@ -46,13 +46,13 @@ export function MapView({
       className={`relative flex-1 overflow-hidden bg-app-canvas ${compact ? "min-h-52" : "min-h-[30rem]"}`}
     >
       <MapCanvas
-        center={selectedPosition ?? center}
+        center={center}
         compact={compact}
         reports={reports}
-        selectedPosition={selectedPosition}
+        previewPosition={previewPosition}
         onPositionChange={onPositionChange}
       />
-      <div className="pointer-events-none absolute bottom-4 left-4 z-[500] flex flex-wrap gap-2 rounded-2xl border border-outline bg-white/95 px-3 py-2 text-[0.6875rem] font-black text-ink shadow-card backdrop-blur">
+      <div className="pointer-events-none absolute bottom-4 left-4 z-[500] flex flex-wrap gap-2 rounded-2xl border border-outline bg-surface/95 px-3 py-2 text-[0.6875rem] font-black text-ink shadow-card backdrop-blur">
         <span className="flex items-center gap-1.5">
           <span
             aria-hidden="true"

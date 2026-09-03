@@ -30,14 +30,14 @@ const MAP_COLORS = {
 
 export function MapCanvas({
   reports = EMPTY_REPORTS,
-  center = [43.6969, 142.5104],
-  selectedPosition,
+  center = [34.6383, 133.6903],
+  previewPosition,
   onPositionChange,
   compact = false,
 }: {
   reports?: MapReport[];
   center?: [number, number];
-  selectedPosition?: [number, number] | null;
+  previewPosition?: [number, number] | null;
   onPositionChange?: (position: [number, number]) => void;
   compact?: boolean;
 }) {
@@ -51,8 +51,8 @@ export function MapCanvas({
   const locationWatchId = useRef<number | null>(null);
   const reportGroups = useMemo(() => groupReportsByMesh(reports), [reports]);
   const selectedReportPreview = useMemo(() => {
-    if (!selectedPosition) return null;
-    const meshCode = toQuarterMeshCode(...selectedPosition);
+    if (!previewPosition) return null;
+    const meshCode = toQuarterMeshCode(...previewPosition);
     const existingGroup = reportGroups.find(
       (group) => group.meshCode === meshCode,
     );
@@ -61,7 +61,7 @@ export function MapCanvas({
       meshCode,
       position: quarterMeshCodeToCenter(meshCode),
     };
-  }, [reportGroups, selectedPosition]);
+  }, [previewPosition, reportGroups]);
 
   const watchCurrentPosition = useCallback(() => {
     if (!("geolocation" in navigator)) {
@@ -202,12 +202,12 @@ export function MapCanvas({
           type="button"
           onClick={watchCurrentPosition}
           disabled={locationStatus === "loading"}
-          className="rounded-full border border-outline bg-white px-3 py-2 text-xs font-black text-ink shadow-card disabled:cursor-wait disabled:opacity-70"
+          className="rounded-full border border-outline bg-surface px-3 py-2 text-xs font-black text-ink shadow-card disabled:cursor-wait disabled:opacity-70"
         >
           {locationStatus === "loading" ? "取得中…" : "現在地を追跡"}
         </button>
         <output
-          className={`rounded-lg bg-white/95 px-2 py-1 text-right text-[0.625rem] font-bold shadow-card ${
+          className={`rounded-lg bg-surface/95 px-2 py-1 text-right text-[0.625rem] font-bold shadow-card ${
             locationStatus === "error" ? "text-impassable" : "text-muted"
           }`}
         >

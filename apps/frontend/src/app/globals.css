@@ -7,6 +7,7 @@
   --brand-soft: #c7dcff;
   --muted: #6b7076;
   --outline: #d9dde1;
+  --neutral-soft: #d9d9d9;
   --surface: #ffffff;
   --app-surface: #f3f5f6;
   --app-canvas: #e5ecea;
@@ -14,7 +15,9 @@
   --caution: #f0a92e;
   --caution-soft: #fff2d8;
   --caution-ink: #8a5200;
+  --caution-contrast: #faf0de;
   --impassable: #c7362a;
+  --impassable-soft: var(--color-red-50);
 }
 
 @theme inline {
@@ -24,6 +27,7 @@
   --color-brand-soft: var(--brand-soft);
   --color-muted: var(--muted);
   --color-outline: var(--outline);
+  --color-neutral-soft: var(--neutral-soft);
   --color-surface: var(--surface);
   --color-app-surface: var(--app-surface);
   --color-app-canvas: var(--app-canvas);
@@ -31,8 +35,11 @@
   --color-caution: var(--caution);
   --color-caution-soft: var(--caution-soft);
   --color-caution-ink: var(--caution-ink);
+  --color-caution-contrast: var(--caution-contrast);
   --color-impassable: var(--impassable);
+  --color-impassable-soft: var(--impassable-soft);
   --color-ink: var(--foreground);
+  --text-family-label: 1.5625rem;
   --font-sans:
     "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
   --shadow-app: 0 24px 70px rgb(26 54 46 / 0.18);

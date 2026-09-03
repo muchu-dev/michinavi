@@ -33,19 +33,19 @@ vi.mock("@/components/map/map-view", () => ({
   MapView: ({
     onPositionChange,
     reports = [],
-    selectedPosition,
+    previewPosition,
   }: {
     onPositionChange?: (position: [number, number]) => void;
     reports?: unknown[];
-    selectedPosition?: [number, number] | null;
+    previewPosition?: [number, number] | null;
   }) => (
     <div role="img" aria-label="投稿地点の地図">
       <span data-report-count={reports.length} />
-      <span data-selected-position={JSON.stringify(selectedPosition)} />
+      <span data-preview-position={JSON.stringify(previewPosition)} />
       {onPositionChange ? (
         <button
           type="button"
-          onClick={() => onPositionChange([35.6812, 139.7671])}
+          onClick={() => onPositionChange([34.6383, 133.6903])}
         >
           テスト現在地を設定
         </button>
@@ -86,13 +86,13 @@ describe("PostsPage", () => {
       data: [
         {
           id: "nearby",
-          meshCode: "5339461132",
+          meshCode: "5133756531",
           roadCondition: "passable" as const,
           createdAt: new Date().toISOString(),
         },
         {
           id: "distant",
-          meshCode: "5133756531",
+          meshCode: "5339461132",
           roadCondition: "caution" as const,
           createdAt: new Date().toISOString(),
         },
@@ -124,9 +124,9 @@ describe("PostsPage", () => {
     expect(
       screen
         .getByRole("img", { name: "投稿地点の地図" })
-        .querySelector("[data-selected-position]")
-        ?.getAttribute("data-selected-position"),
-    ).toBe(JSON.stringify([35.6812, 139.7671]));
+        .querySelector("[data-preview-position]")
+        ?.getAttribute("data-preview-position"),
+    ).toBe("null");
 
     fireEvent.click(
       screen.getByRole("button", { name: "この道の状況を報告する" }),
@@ -156,11 +156,68 @@ describe("PostsPage", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: "注意が必要" }));
 
+    expect(screen.getByText("選択中")).toBeTruthy();
     expect(screen.getAllByRole("radio")).toHaveLength(9);
     expect(
       (screen.getByRole("button", { name: "投稿する" }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+
+  it("does not count the current location as a preview and clears the preview after submission", async () => {
+    listUseQuery.mockReturnValue({
+      data: [
+        {
+          id: "existing",
+          meshCode: "5133756531",
+          roadCondition: "passable",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      dataUpdatedAt: Date.now(),
+      isError: false,
+      isPending: false,
+    });
+    mutateAsync.mockResolvedValueOnce({ id: "created" });
+    render(<PostsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
+    const mapBeforeSubmit = screen.getByRole("img", {
+      name: "投稿地点の地図",
+    });
+    expect(
+      mapBeforeSubmit
+        .querySelector("[data-report-count]")
+        ?.getAttribute("data-report-count"),
+    ).toBe("1");
+    expect(
+      mapBeforeSubmit
+        .querySelector("[data-preview-position]")
+        ?.getAttribute("data-preview-position"),
+    ).toBe("null");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "この道の状況を報告する" }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "通れる" }));
+    fireEvent.click(screen.getByRole("button", { name: "投稿する" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "投稿地点の地図" })).toBeTruthy();
+    });
+    const mapAfterSubmit = screen.getByRole("img", {
+      name: "投稿地点の地図",
+    });
+    expect(
+      mapAfterSubmit
+        .querySelector("[data-report-count]")
+        ?.getAttribute("data-report-count"),
+    ).toBe("1");
+    expect(
+      mapAfterSubmit
+        .querySelector("[data-preview-position]")
+        ?.getAttribute("data-preview-position"),
+    ).toBe("null");
   });
 
   it("allows impassable submission without a cause and can reopen cause choices", async () => {

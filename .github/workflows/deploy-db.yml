@@ -1,0 +1,99 @@
+name: Deploy DB
+
+# main にマージされたときだけ、共有の Supabase プロジェクトへスキーマを反映する。
+#
+# Vercel のビルドから流さないのは、ビルドが PR ごとの preview でも走り、
+# 未マージのマイグレーションが同じ DB に当たってしまうためである。
+# 同時実行の直列化とロールバックの単位も、デプロイとは別に持つ必要がある。
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/db/**'
+      - 'apps/backend/src/demo/**'
+      - '.github/workflows/deploy-db.yml'
+  workflow_dispatch:
+
+# 走っているマイグレーションは中断しない。
+# 途中で切ると、どこまで適用されたか分からない状態が残る
+concurrency:
+  group: deploy-db
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Migrate
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/node-pnpm-setup
+
+      # 鍵が無いまま進むと、途中まで実行してから分かりにくく落ちる
+      - name: Check secrets
+        run: |
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::${name} が設定されていません（Settings > Secrets）"
+              exit 1
+            fi
+          done
+
+      - name: Link project
+        run: pnpm --filter @michinavi/db exec supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      # 何が流れるかをログに残してから適用する
+      - name: Plan
+        run: pnpm --filter @michinavi/db exec supabase db push --dry-run
+
+      # seed.sql は on conflict do nothing で書いてあるので、毎回流しても増えない
+      - name: Apply migrations and seed
+        run: pnpm --filter @michinavi/db exec supabase db push --include-seed --yes
+
+  demo-seed:
+    name: Demo seed
+    needs: migrate
+    # 本番公開時に止められるよう、リポジトリ変数で明示的に有効化する
+    if: ${{ vars.DEMO_SEED_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/node-pnpm-setup
+
+      # 3 つ揃わないと、スクリプトがローカルの Supabase を探しに行って落ちる
+      - name: Check secrets
+        run: |
+          for name in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::${name} が設定されていません（Settings > Secrets）"
+              exit 1
+            fi
+          done
+
+      # デモ用アカウント（demo-*@michinavi.example）だけを作り直す。
+      # 削除対象も同じアドレスに限定されているため、実利用者は消えない
+      - name: Seed demo data
+        run: pnpm demo:seed

@@ -11,7 +11,8 @@
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "demo:seed": "node scripts/seed-demo.ts"
   },
   "dependencies": {
     "@michinavi/db": "workspace:*",
