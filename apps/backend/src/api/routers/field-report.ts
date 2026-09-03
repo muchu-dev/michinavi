@@ -1,6 +1,8 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { toTRPCError } from "../errors";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../init";
+import { refreshRoadStatusEstimate } from "./road-status";
 
 /**
  * 投稿位置は 10 桁の 4 分の 1 地域メッシュ（約 250m）で受け取る（S1）。
@@ -31,19 +33,36 @@ export const fieldReportRouter = createTRPCRouter({
   create: protectedProcedure
     .input(createInputSchema)
     .mutation(async ({ ctx, input }) => {
+      // 直接 INSERT せず DB 関数を通すのは、レート制限の加算と投稿の保存を
+      // 同じトランザクションで行うためである（BE-23）。上限を超えると
+      // 例外で巻き戻り、加算も投稿もどちらも残らない
       const { data, error } = await ctx.supabase
-        .from("field_reports")
-        .insert({
-          user_id: ctx.user.id,
-          report_type: "road",
-          road_condition: input.roadCondition,
-          mesh_code: input.meshCode,
+        .rpc("create_field_report", {
+          p_mesh_code: input.meshCode,
+          p_road_condition: input.roadCondition,
         })
-        .select()
         .single();
 
       if (error) {
         throw toTRPCError(error, "投稿の保存に失敗しました");
+      }
+      if (!data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "投稿の保存に失敗しました",
+        });
+      }
+
+      try {
+        // AI推定の失敗が投稿の成否に影響しないよう、ここで吸収する（BE-16）
+        await refreshRoadStatusEstimate(ctx.supabase, input.meshCode);
+      } catch (refreshError) {
+        // road_status_estimates の更新に失敗しても投稿自体は成功させるが、
+        // 痕跡は残す（空の catch だと障害時にどこで落ちたか分からなくなる）
+        console.warn(
+          "[field-report] road_status_estimates の更新に失敗しました",
+          refreshError,
+        );
       }
 
       return {
@@ -54,11 +73,18 @@ export const fieldReportRouter = createTRPCRouter({
       };
     }),
 
-  /** 通行可否の投稿を新しい順に返す（BE-11） */
+  /**
+   * 通行可否の投稿を新しい順に返す（BE-11）。
+   *
+   * 運営が非表示にした投稿を落とす条件はここに書かず、RLS に任せる（BE-24）。
+   * 条件を router 側にも書くと、「自分の投稿は状態にかかわらず見える」という
+   * 例外まで二重に持つことになり、片方だけ直す事故が起きる。
+   * 本人が自分の非表示の投稿を見たときに分かるよう、status を返す
+   */
   list: publicProcedure.input(listInputSchema).query(async ({ ctx, input }) => {
     const { data, error } = await ctx.supabase
       .from("field_reports")
-      .select("id, mesh_code, road_condition, created_at")
+      .select("id, mesh_code, road_condition, status, created_at")
       .eq("report_type", "road")
       .order("created_at", { ascending: false })
       .limit(input.limit);
@@ -71,6 +97,7 @@ export const fieldReportRouter = createTRPCRouter({
       id: row.id,
       meshCode: row.mesh_code,
       roadCondition: row.road_condition,
+      status: row.status,
       createdAt: row.created_at,
     }));
   }),

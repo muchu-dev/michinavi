@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@michinavi/backend": "workspace:*",
+    "@michinavi/db": "workspace:*",
+    "@supabase/ssr": "catalog:",
     "@t3-oss/env-nextjs": "catalog:",
     "@tanstack/react-query": "^5.101.4",
     "@trpc/client": "^11.18.0",

@@ -2,6 +2,7 @@ import { createSupabaseRequestContext } from "@michinavi/db";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { supabaseConnection } from "../env.backend";
+import { emergencyGuidance, shouldAttachGuidance } from "./fallback";
 
 /**
  * リクエストごとに全 procedure へ渡される値。
@@ -24,6 +25,23 @@ export type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
 
 const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
+  /**
+   * サーバ側の障害で返すエラーには、行政と気象庁への案内を必ず添える（BE-27）。
+   *
+   * 画面ごとに「落ちたときは何を出すか」を書かせると、書き漏らした画面で
+   * 何も出ない。エラー応答そのものに載せてしまえば、受け取り側が
+   * どの画面でも同じ案内を出せる。
+   */
+  errorFormatter({ shape }) {
+    if (!shouldAttachGuidance(shape.data.code)) {
+      return shape;
+    }
+
+    return {
+      ...shape,
+      data: { ...shape.data, fallback: emergencyGuidance },
+    };
+  },
 });
 
 /** router を定義する */
@@ -45,4 +63,26 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   }
 
   return next({ ctx: { ...ctx, user: ctx.user } });
+});
+
+/**
+ * 運営（モデレーター）だけが実行できる procedure（S4）。
+ *
+ * 権限は users の列ではなく JWT の app_metadata.app_role で決まる
+ * （docs/er/07-safety-moderation.md#ポリシーの一覧）。app_metadata は
+ * Supabase Auth の管理 API からしか書けないため、利用者自身が付け替えられない。
+ *
+ * DB 側にも同じ判定の RLS（public.is_moderator）がある。
+ * ここは 2 枚目の防壁で、権限が無いことを 404 ではなく 403 として返し、
+ * 「操作は存在するが権限が足りない」ことを呼び出し側に伝えるためにある。
+ */
+export const moderatorProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.app_metadata?.app_role !== "moderator") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "この操作は運営のみが実行できます",
+    });
+  }
+
+  return next({ ctx });
 });

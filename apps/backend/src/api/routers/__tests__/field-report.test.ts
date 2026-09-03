@@ -6,11 +6,20 @@ import {
   type TestUser,
 } from "@michinavi/testing";
 import { TRPCError } from "@trpc/server";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   createAnonymousCaller,
   createCallerFor,
 } from "../../__tests__/helpers";
+
+// road_status_estimates の再計算(BE-16)は field-report.test.ts の関心事ではない。
+// Gemini への実通信を避けるため、常に失敗させて多数決フォールバックに任せる
+vi.mock("../../../ai/gemini-client", () => ({
+  generateStructuredJson: vi.fn(async () => ({
+    ok: false as const,
+    error: "mocked: not available in field-report.test.ts",
+  })),
+}));
 
 const serviceRole = createServiceRoleClient();
 const createdUserIds: string[] = [];
