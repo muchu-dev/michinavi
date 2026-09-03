@@ -167,6 +167,51 @@ export type Database = {
           },
         ];
       };
+      field_report_digests: {
+        Row: {
+          caution_count: number;
+          impassable_count: number;
+          is_ai_summary: boolean;
+          latest_reported_at: string;
+          merged_count: number;
+          mesh_code: string;
+          passable_count: number;
+          report_count: number;
+          reporter_count: number;
+          road_condition: Database["public"]["Enums"]["road_condition"];
+          summary: string;
+          updated_at: string;
+        };
+        Insert: {
+          caution_count?: number;
+          impassable_count?: number;
+          is_ai_summary?: boolean;
+          latest_reported_at: string;
+          merged_count?: number;
+          mesh_code: string;
+          passable_count?: number;
+          report_count: number;
+          reporter_count: number;
+          road_condition: Database["public"]["Enums"]["road_condition"];
+          summary: string;
+          updated_at?: string;
+        };
+        Update: {
+          caution_count?: number;
+          impassable_count?: number;
+          is_ai_summary?: boolean;
+          latest_reported_at?: string;
+          merged_count?: number;
+          mesh_code?: string;
+          passable_count?: number;
+          report_count?: number;
+          reporter_count?: number;
+          road_condition?: Database["public"]["Enums"]["road_condition"];
+          summary?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       field_report_photos: {
         Row: {
           byte_size: number;

@@ -187,6 +187,13 @@ export async function refreshFieldReportDigest(
   }
 
   const serviceRole = getServiceRoleClient();
+  if (!serviceRole) {
+    console.warn(
+      "[report-digest] SUPABASE_SECRET_KEY が未設定のため field_report_digests を更新できません",
+    );
+    return;
+  }
+
   await serviceRole.from("field_report_digests").upsert(
     {
       mesh_code: meshCode,
