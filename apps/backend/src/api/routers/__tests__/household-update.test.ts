@@ -32,6 +32,17 @@ async function newHouseholdUser() {
   return { user, caller, ctx, setup };
 }
 
+/**
+ * care_needs は seed で入る共有のマスタで、テスト用に作った行ではない。
+ * 触ったら必ず戻す（戻さないと `pnpm db:reset` するまで壊れたまま残る）。
+ */
+function setCareNeedActive(key: string, isActive: boolean) {
+  return serviceRole
+    .from("care_needs")
+    .update({ is_active: isActive })
+    .eq("key", key);
+}
+
 afterEach(async () => {
   await Promise.all(createdUserIds.splice(0).map(deleteTestUser));
 });
@@ -270,39 +281,54 @@ describe("household.update", () => {
   test("無効化された要配慮は黙って捨てずにエラーになる", async () => {
     const { caller, setup } = await newHouseholdUser();
 
-    const { error: deactivateError } = await serviceRole
+    try {
+      const { error: deactivateError } = await setCareNeedActive(
+        "language_support",
+        false,
+      );
+      expect(deactivateError).toBeNull();
+
+      const error = await caller.household
+        .update({
+          areaId: SEED_AREA_IDS.mabiYata,
+          homeMeshCode: "5133451124",
+          carCount: 0,
+          members: [
+            {
+              id: setup.householdMemberId,
+              displayName: "山田太郎",
+              ageGroup: "adult",
+              needsAssistance: false,
+              careNeeds: [{ key: "language_support" }],
+            },
+          ],
+          pets: [],
+        })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(TRPCError);
+      expect(error).toMatchObject({ code: "NOT_FOUND" });
+
+      // エラーになった以上、要配慮は 1 件も保存されていない
+      const { count } = await serviceRole
+        .from("household_member_care_needs")
+        .select("household_member_id", { count: "exact", head: true })
+        .eq("household_member_id", setup.householdMemberId);
+      expect(count).toBe(0);
+    } finally {
+      // アサーションが落ちても必ず戻す。テストは 1 つのローカル Supabase を
+      // 共有している（vitest.config.mts の fileParallelism: false）
+      await setCareNeedActive("language_support", true);
+    }
+
+    // 戻し忘れると、以降このリポジトリのローカル DB では「言語支援」を
+    // 選べないままになる（zod は通るが DB 関数が NOT_FOUND を返す）
+    const { data } = await serviceRole
       .from("care_needs")
-      .update({ is_active: false })
-      .eq("key", "language_support");
-    expect(deactivateError).toBeNull();
-
-    const error = await caller.household
-      .update({
-        areaId: SEED_AREA_IDS.mabiYata,
-        homeMeshCode: "5133451124",
-        carCount: 0,
-        members: [
-          {
-            id: setup.householdMemberId,
-            displayName: "山田太郎",
-            ageGroup: "adult",
-            needsAssistance: false,
-            careNeeds: [{ key: "language_support" }],
-          },
-        ],
-        pets: [],
-      })
-      .catch((caught: unknown) => caught);
-
-    expect(error).toBeInstanceOf(TRPCError);
-    expect(error).toMatchObject({ code: "NOT_FOUND" });
-
-    // エラーになった以上、要配慮は 1 件も保存されていない
-    const { count } = await serviceRole
-      .from("household_member_care_needs")
-      .select("household_member_id", { count: "exact", head: true })
-      .eq("household_member_id", setup.householdMemberId);
-    expect(count).toBe(0);
+      .select("is_active")
+      .eq("key", "language_support")
+      .single();
+    expect(data?.is_active).toBe(true);
   });
 
   test("入力の検証で弾かれる", async () => {

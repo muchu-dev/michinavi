@@ -36,13 +36,19 @@ describe("seedDemoData（BE-26）", () => {
       .in("user_id", summary.userIds);
     expect(seededIds).toHaveLength(summary.reports);
 
-    const { caller } = await createAnonymousCaller();
-    const visible = await caller.fieldReport.list({ limit: 100 });
-    const visibleIds = new Set(visible.map((report) => report.id));
+    // 未ログインのクライアントで RLS ごしに引く。
+    // fieldReport.list は「新しい順に 100 件」なので、テストが積み上げた
+    // 別の投稿が 100 件を超えると、デモの投稿が見えていても取りこぼす
+    const { ctx } = await createAnonymousCaller();
+    const { data: visible } = await ctx.supabase
+      .from("field_reports")
+      .select("id")
+      .in(
+        "id",
+        (seededIds ?? []).map((row) => row.id),
+      );
 
-    expect(
-      (seededIds ?? []).filter((row) => visibleIds.has(row.id)).length,
-    ).toBe(summary.reports);
+    expect(visible).toHaveLength(summary.reports);
   });
 
   test("同じ地点に複数の報告が集まる", async () => {

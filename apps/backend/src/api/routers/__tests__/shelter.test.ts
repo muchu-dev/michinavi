@@ -8,6 +8,17 @@ const serviceRole = createServiceRoleClient();
 const MABI_YATA = { latitude: 34.6383, longitude: 133.6903 };
 const importedCodes: string[] = [];
 
+/**
+ * shelters は seed で入る共有のマスタで、テスト用に作った行ではない。
+ * 触ったら必ず戻す（戻さないと `pnpm db:reset` するまで壊れたまま残る）。
+ */
+function setShelterActive(externalCode: string, isActive: boolean) {
+  return serviceRole
+    .from("shelters")
+    .update({ is_active: isActive })
+    .eq("external_code", externalCode);
+}
+
 afterEach(async () => {
   if (importedCodes.length > 0) {
     await serviceRole
@@ -105,26 +116,31 @@ describe("shelter.nearby", () => {
   });
 
   test("廃止された避難所は返らない", async () => {
-    await serviceRole
+    try {
+      await setShelterActive("DEMO-SHELTER-002", false);
+
+      const { caller } = await createAnonymousCaller();
+      const shelters = await caller.shelter.nearby({
+        ...MABI_YATA,
+        radiusM: 3000,
+        limit: 10,
+      });
+
+      expect(shelters.some((s) => s.externalCode === "DEMO-SHELTER-002")).toBe(
+        false,
+      );
+    } finally {
+      // アサーションが落ちても必ず戻す。戻さないと seed の避難所が
+      // 消えたまま残り、以降のテストと手元の画面から見えなくなる
+      await setShelterActive("DEMO-SHELTER-002", true);
+    }
+
+    const { data } = await serviceRole
       .from("shelters")
-      .update({ is_active: false })
-      .eq("external_code", "DEMO-SHELTER-002");
-
-    const { caller } = await createAnonymousCaller();
-    const shelters = await caller.shelter.nearby({
-      ...MABI_YATA,
-      radiusM: 3000,
-      limit: 10,
-    });
-
-    expect(shelters.some((s) => s.externalCode === "DEMO-SHELTER-002")).toBe(
-      false,
-    );
-
-    await serviceRole
-      .from("shelters")
-      .update({ is_active: true })
-      .eq("external_code", "DEMO-SHELTER-002");
+      .select("is_active")
+      .eq("external_code", "DEMO-SHELTER-002")
+      .single();
+    expect(data?.is_active).toBe(true);
   });
 
   test("入力の検証で弾かれる", async () => {
