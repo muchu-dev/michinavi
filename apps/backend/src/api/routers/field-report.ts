@@ -22,6 +22,23 @@ const createInputSchema = z.object({
 
 const listInputSchema = z.object({
   limit: z.int().min(1).max(100).default(50),
+  /**
+   * 見ている地域のメッシュコードの先頭。前方一致で絞る。
+   *
+   * これが無いと list は「全国の新しい順 limit 件」を返すため、
+   * 画面側で自分の地域だけ残す作りになる。投稿が他の地域で増えると、
+   * 自分の地域の投稿が limit の窓から押し出されて地図が空になる
+   * （BE-26 でデモが 0 件になったのと同じ理屈）。絞り込みは DB 側で行う。
+   *
+   * 2 次メッシュなら 6 桁、4 分の 1 地域メッシュまで指定するなら 10 桁。
+   */
+  meshPrefix: z
+    .string()
+    .regex(
+      /^\d{1,10}$/,
+      "メッシュコードの先頭は 1〜10 桁の数字で指定してください",
+    )
+    .optional(),
 });
 
 export const fieldReportRouter = createTRPCRouter({
@@ -96,10 +113,18 @@ export const fieldReportRouter = createTRPCRouter({
    * 本人が自分の非表示の投稿を見たときに分かるよう、status を返す
    */
   list: publicProcedure.input(listInputSchema).query(async ({ ctx, input }) => {
-    const { data, error } = await ctx.supabase
+    let query = ctx.supabase
       .from("field_reports")
       .select("id, mesh_code, road_condition, status, created_at")
-      .eq("report_type", "road")
+      .eq("report_type", "road");
+
+    if (input.meshPrefix) {
+      // meshPrefix は数字だけに検証済みなので、like のワイルドカード
+      // （% と _）が入り込むことはない
+      query = query.like("mesh_code", `${input.meshPrefix}%`);
+    }
+
+    const { data, error } = await query
       .order("created_at", { ascending: false })
       .limit(input.limit);
 
