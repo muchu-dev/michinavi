@@ -1,5 +1,10 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/components/family/family-status-board", () => ({
+  FamilyStatusBoard: () => <div data-testid="family-status-board" />,
+}));
+
 import FamilyPage, { metadata } from "./page";
 
 afterEach(cleanup);
@@ -9,24 +14,14 @@ describe("FamilyPage", () => {
     expect(metadata.title).toBe("家族");
   });
 
-  it("shows each family member with their current evacuation status", () => {
+  it("shows the live family status board instead of sample copy", () => {
     render(<FamilyPage />);
 
     expect(
       screen.getByRole("heading", { level: 1, name: "家族の状況" }),
     ).toBeDefined();
-
-    const statusList = screen.getByRole("list", {
-      name: "家族の避難状況",
-    });
-    const statusItems = within(statusList).getAllByRole("listitem");
-
-    expect(statusItems).toHaveLength(2);
-    expect(within(statusItems[0]).getByText("母")).toBeDefined();
-    expect(within(statusItems[0]).getByText("避難済み")).toBeDefined();
-    expect(within(statusItems[1]).getByText("父")).toBeDefined();
-    expect(within(statusItems[1]).getByText("支援が必要")).toBeDefined();
-    expect(screen.getByText("サンプル表示です")).toBeDefined();
+    expect(screen.getByTestId("family-status-board")).toBeDefined();
+    expect(screen.queryByText("サンプル表示です")).toBeNull();
   });
 
   it("shows the family settings entry without unfinished placeholder copy", () => {

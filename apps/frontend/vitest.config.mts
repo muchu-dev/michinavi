@@ -26,6 +26,7 @@ export default defineConfig({
         "src/components/auth/**/*.tsx",
         "src/components/onboarding/**/*.tsx",
         "src/components/app-shell/**/*.tsx",
+        "src/components/family/**/*.tsx",
         "src/components/map/**/*.tsx",
         "src/config/navigation.ts",
         "src/lib/supabase/proxy.ts",
