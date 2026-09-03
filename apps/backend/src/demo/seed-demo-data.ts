@@ -1,5 +1,13 @@
 import type { Database } from "@michinavi/db";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  type AggregatableReport,
+  countByCondition,
+  countReporters,
+  dedupeReports,
+  majorityCondition,
+  type RoadCondition,
+} from "../reports/aggregate";
 
 /**
  * デモ用データの投入（BE-26）。
@@ -209,10 +217,23 @@ const DEMO_REPORTS: DemoReport[] = [
   },
 ];
 
+const CONDITION_LABELS: Record<RoadCondition, string> = {
+  passable: "通れる",
+  caution: "注意",
+  impassable: "通れない",
+};
+
+/** 投稿を出す地点。片付けのときに、そこから作った推定も消すために使う */
+function demoMeshCodes(): string[] {
+  return [...new Set(DEMO_REPORTS.map((report) => report.meshCode))];
+}
+
 export type DemoSeedSummary = {
   households: number;
   members: number;
   reports: number;
+  /** 推定とまとめを入れた地点の数 */
+  estimatedMeshes: number;
   userIds: string[];
 };
 
@@ -231,6 +252,17 @@ export async function removeDemoData(
   connection: DemoSeedConnection,
 ): Promise<void> {
   const client = serviceClient(connection);
+
+  // 投稿から作った推定とまとめも一緒に消す。
+  // これを残すと、デモを片付けた後の地図の吹き出しに、
+  // 投稿が1件も無い地点の推定だけが出続ける
+  const meshCodes = demoMeshCodes();
+  await client
+    .from("road_status_estimates")
+    .delete()
+    .in("mesh_code", meshCodes);
+  await client.from("field_report_digests").delete().in("mesh_code", meshCodes);
+
   const emails = DEMO_HOUSEHOLDS.map((household) => demoEmail(household.key));
   const { data } = await client.auth.admin.listUsers({ perPage: 1000 });
   const targets = (data?.users ?? []).filter(
@@ -394,7 +426,8 @@ export async function seedDemoData(
     };
   });
 
-  const { error: reportError } = await serviceClient(connection)
+  const client = serviceClient(connection);
+  const { error: reportError } = await client
     .from("field_reports")
     .insert(reportRows);
 
@@ -404,12 +437,117 @@ export async function seedDemoData(
     );
   }
 
+  // 4. 投稿から地点ごとの推定とまとめを作る
+  const estimatedMeshes = await seedRoadStatus(client, reportRows);
+
   return {
     households: DEMO_HOUSEHOLDS.length,
     members: memberCount,
     reports: reportRows.length,
+    estimatedMeshes,
     userIds: [...userIdsByKey.values()],
   };
+}
+
+/**
+ * 投稿から road_status_estimates と field_report_digests を作る。
+ *
+ * 本番ではこの2つを投稿API（fieldReport.create）が投稿のたびに作るが、
+ * デモ用の投稿は created_at をずらすため service role で直接入れており、
+ * その経路を通らない。埋めておかないと、地図の吹き出しに
+ * 「推定はまだありません」しか出ず、投稿から通行可否を推定するという
+ * この product の主張がデモで一切見えなくなる。
+ *
+ * ここでは Gemini を呼ばない。デモ用データの投入が外部APIの調子や
+ * 鍵の有無に左右されると、発表直前に地図が空になりうるためである。
+ * 代わりに、AI が使えないときと同じ多数決（src/reports/aggregate.ts）で
+ * 埋める。AI 由来ではないことは confidence: low と
+ * is_ai_summary: false で画面に伝わる。
+ */
+async function seedRoadStatus(
+  client: ServiceClient,
+  rows: readonly {
+    user_id: string;
+    road_condition: Database["public"]["Enums"]["road_condition"];
+    mesh_code: string;
+    created_at: string;
+  }[],
+): Promise<number> {
+  const reportsByMesh = new Map<string, AggregatableReport[]>();
+
+  for (const row of rows) {
+    const reports = reportsByMesh.get(row.mesh_code) ?? [];
+    reports.push({
+      user_id: row.user_id,
+      road_condition: row.road_condition,
+      created_at: row.created_at,
+    });
+    reportsByMesh.set(row.mesh_code, reports);
+  }
+
+  const updatedAt = new Date().toISOString();
+  const estimates = [];
+  const digests = [];
+
+  for (const [meshCode, reports] of reportsByMesh) {
+    // 数え方は本番と同じ。連投を畳んでから多数決を取る（BE-18）
+    const { active, mergedCount } = dedupeReports(reports);
+    const latest = active[0];
+
+    if (!latest) {
+      continue;
+    }
+
+    const counts = countByCondition(active);
+    const roadCondition = majorityCondition(counts);
+    const reporterCount = countReporters(active);
+
+    estimates.push({
+      mesh_code: meshCode,
+      road_condition: roadCondition,
+      confidence: "low" as const,
+      report_count: active.length,
+      reasoning: "デモ用データのため、報告件数の多数決で算出しました",
+      updated_at: updatedAt,
+    });
+
+    digests.push({
+      mesh_code: meshCode,
+      road_condition: roadCondition,
+      report_count: active.length,
+      merged_count: mergedCount,
+      reporter_count: reporterCount,
+      passable_count: counts.passable,
+      caution_count: counts.caution,
+      impassable_count: counts.impassable,
+      latest_reported_at: latest.created_at,
+      summary: `現在は「${CONDITION_LABELS[roadCondition]}」とみています。内訳は通れる${counts.passable}件・注意${counts.caution}件・通れない${counts.impassable}件、${reporterCount}人からの報告です。`,
+      is_ai_summary: false,
+      updated_at: updatedAt,
+    });
+  }
+
+  const { error: estimateError } = await client
+    .from("road_status_estimates")
+    .upsert(estimates, { onConflict: "mesh_code" });
+
+  if (estimateError) {
+    throw new Error(
+      `road_status_estimates を作成できませんでした: ${estimateError.message}`,
+    );
+  }
+
+  const { error: digestError } = await client
+    .from("field_report_digests")
+    .upsert(digests, { onConflict: "mesh_code" });
+
+  if (digestError) {
+    throw new Error(
+      `field_report_digests を作成できませんでした: ${digestError.message}`,
+    );
+  }
+
+  return estimates.length;
 }
 
 /** デモ用アカウントでログインするための情報。発表者に渡す */
