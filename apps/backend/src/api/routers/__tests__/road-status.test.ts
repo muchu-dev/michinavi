@@ -64,13 +64,15 @@ describe("投稿による road_status_estimates の再計算(BE-16)", () => {
       error: "unavailable in test",
     });
 
-    const user = await newRegisteredUser();
-    const { caller } = await createCallerFor(user);
     const meshCode = uniqueMeshCode();
 
-    await caller.fieldReport.create({ meshCode, roadCondition: "impassable" });
-    await caller.fieldReport.create({ meshCode, roadCondition: "impassable" });
-    await caller.fieldReport.create({ meshCode, roadCondition: "passable" });
+    // 多数決の母数は重複統合後の報告なので（BE-18）、
+    // 3 票を入れるには 3 人の投稿者が要る
+    for (const condition of ["impassable", "impassable", "passable"] as const) {
+      const user = await newRegisteredUser();
+      const { caller } = await createCallerFor(user);
+      await caller.fieldReport.create({ meshCode, roadCondition: condition });
+    }
 
     const { data } = await serviceRole
       .from("road_status_estimates")

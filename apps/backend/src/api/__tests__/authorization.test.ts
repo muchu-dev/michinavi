@@ -53,6 +53,9 @@ const PUBLICLY_READABLE_TABLES = new Set([
   // mesh_code ごとの道路状態のAI推定（BE-16）。地図表示用で、field_reports と
   // 同じく未ログインでも見える（roadStatus.list は publicProcedure）
   "road_status_estimates",
+  // 同一地点の投稿をまとめたカード（BE-18）。元になる field_reports 自体が
+  // 全員に見える設計のため、集計結果も未ログインで見える
+  "field_report_digests",
 ]);
 
 /**
