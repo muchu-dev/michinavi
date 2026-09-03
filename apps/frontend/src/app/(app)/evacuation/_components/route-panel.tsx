@@ -7,6 +7,12 @@ import { api } from "@/lib/trpc/client";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type NearbyShelter = RouterOutputs["shelter"]["nearby"][number];
+type AssignmentResult = RouterOutputs["shelterAssignment"]["assign"];
+
+type RouteShelter = Pick<NearbyShelter, "id" | "name" | "distanceM"> & {
+  expectedPeople?: number;
+  occupancyRate?: number | null;
+};
 
 // DBのデモ避難所を確認できる地点と、徒歩時間の概算に使う歩行速度を定義する。
 const demoLocation = { latitude: 34.6383, longitude: 133.6903 };
@@ -40,9 +46,11 @@ function WalkingIcon() {
 function RouteOptionCard({
   shelter,
   recommended,
+  recommendationReason,
 }: {
-  shelter: NearbyShelter;
+  shelter: RouteShelter;
   recommended: boolean;
+  recommendationReason?: string;
 }) {
   const distanceKm = shelter.distanceM / 1000;
   const walkingMinutes = getWalkingMinutes(shelter.distanceM);
@@ -72,9 +80,18 @@ function RouteOptionCard({
           <span aria-hidden="true" className="size-2.5 rounded-full bg-muted" />
           経路上の投稿情報は未連携
         </p>
+        {shelter.expectedPeople !== undefined && (
+          <p className="mt-1 text-[0.6875rem] font-bold text-muted">
+            想定避難者 {shelter.expectedPeople}人
+            {shelter.occupancyRate === null ||
+            shelter.occupancyRate === undefined
+              ? "・定員不明"
+              : `・定員の${Math.round(shelter.occupancyRate * 100)}%`}
+          </p>
+        )}
         {recommended && (
           <p className="mt-1 text-[0.6875rem] font-bold text-passable">
-            デモ位置から直線距離が最短のため推奨
+            {recommendationReason ?? "デモ位置から直線距離が最短のため推奨"}
           </p>
         )}
       </div>
@@ -90,7 +107,29 @@ export function RoutePanel() {
     radiusM: 50_000,
     limit: 3,
   });
-  const routeOptions = nearbyQuery.data ?? [];
+  const apiUtils = api.useUtils();
+  const currentAssignment = api.shelterAssignment.current.useQuery();
+  const assignShelter = api.shelterAssignment.assign.useMutation({
+    onSuccess: async () => {
+      await apiUtils.shelterAssignment.current.invalidate();
+    },
+  });
+  const assignment = assignShelter.data;
+  const assignedShelter = toAssignedShelter(assignment);
+  const routeOptions: RouteShelter[] = assignment
+    ? [
+        ...(assignedShelter ? [assignedShelter] : []),
+        ...assignment.alternatives.slice(0, 2),
+      ]
+    : (nearbyQuery.data ?? []);
+
+  const requestAssignment = () => {
+    assignShelter.mutate({
+      ...demoLocation,
+      radiusM: 50_000,
+      candidateLimit: 3,
+    });
+  };
 
   return (
     <>
@@ -117,6 +156,47 @@ export function RoutePanel() {
             {nearbyQuery.isLoading ? "--" : routeOptions.length}件
           </span>
         </div>
+        {currentAssignment.data && !assignment && (
+          <p className="mb-2 rounded-xl border border-passable/40 bg-passable/10 px-3 py-2 text-xs font-bold text-passable">
+            現在の避難先：{currentAssignment.data.shelterName ?? "名称不明"}
+            （世帯{currentAssignment.data.partySize}人）
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={requestAssignment}
+          disabled={assignShelter.isPending}
+          className="mb-3 min-h-11 w-full rounded-xl bg-brand px-4 text-xs font-black text-white disabled:cursor-wait disabled:opacity-60"
+        >
+          {assignShelter.isPending
+            ? "避難先を計算しています…"
+            : assignment
+              ? "混雑状況を更新して再割り当て"
+              : "混雑を考慮して避難先を決める"}
+        </button>
+        {assignShelter.error && (
+          <p
+            role="alert"
+            className="mb-3 rounded-xl border border-impassable bg-white px-3 py-3 text-center text-xs font-bold text-impassable"
+          >
+            避難先を割り当てられませんでした。ログインと家族構成を確認してください。
+          </p>
+        )}
+        {assignment && (
+          <p
+            className={`mb-3 rounded-xl border px-3 py-3 text-xs font-bold ${
+              assignment.isOverCapacity
+                ? "border-caution bg-caution-soft text-caution-ink"
+                : "border-passable/40 bg-passable/10 text-passable"
+            }`}
+          >
+            {assignment.shelterName ?? "選択された避難所"}を、世帯
+            {assignment.partySize}人の避難先に設定しました。
+            {assignment.isOverCapacity
+              ? "周辺の避難所が混雑しているため、代替候補も確認してください。"
+              : "距離と現在の想定人数をもとに分散しています。"}
+          </p>
+        )}
         {/* DB通信中・失敗・0件を区別し、候補がない理由を利用者へ示す。 */}
         {nearbyQuery.isLoading && (
           <p className="rounded-xl border border-outline bg-white px-3 py-5 text-center text-xs font-bold text-muted">
@@ -145,6 +225,11 @@ export function RoutePanel() {
               key={shelter.id}
               shelter={shelter}
               recommended={index === 0}
+              recommendationReason={
+                assignment && index === 0
+                  ? "距離と避難所の混雑状況を考慮して割り当て"
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -160,4 +245,17 @@ export function RoutePanel() {
       </section>
     </>
   );
+}
+
+function toAssignedShelter(
+  assignment: AssignmentResult | undefined,
+): RouteShelter | null {
+  if (!assignment) return null;
+
+  return {
+    id: assignment.shelterId,
+    name: assignment.shelterName ?? "名称不明の避難所",
+    distanceM: assignment.distanceM,
+    expectedPeople: assignment.expectedPeopleBefore + assignment.partySize,
+  };
 }
