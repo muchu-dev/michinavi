@@ -3,27 +3,45 @@ import { MapView } from "@/components/map/map-view";
 export default function MapPage() {
   return (
     <section
-      className="flex min-h-0 flex-1 flex-col"
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto"
       aria-labelledby="map-title"
     >
-      <div className="relative z-[600] border-b border-outline bg-surface px-4 py-3 shadow-card">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold text-brand">現在地周辺</p>
-            <h1 id="map-title" className="mt-0.5 text-xl font-black text-ink">
-              東川町 周辺
+      <header className="relative z-[600] shrink-0 border-b border-outline bg-surface shadow-sm">
+        <div className="flex min-h-9 items-center justify-between gap-3 px-3">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <svg
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-brand"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 21h18M5 21V9l7-4v16M12 9h7v12M8 12h1M8 16h1M15 12h1M15 16h1" />
+            </svg>
+            <h1
+              id="map-title"
+              className="truncate text-xs font-black tracking-[0.02em] text-ink"
+            >
+              倉敷市真備町&nbsp;&nbsp;周辺（デモ）
             </h1>
           </div>
-          <p className="pt-1 text-right text-[0.6875rem] font-bold text-muted">
-            9:41更新
-            <br />
-            投稿24件
+
+          <p className="shrink-0 text-[0.5625rem] font-bold text-muted">
+            サンプル：9:41更新・投稿24件
           </p>
         </div>
-        <p className="mt-2 inline-flex min-h-8 items-center rounded-lg bg-caution-soft px-3 py-1 text-xs font-black text-caution-ink">
-          警戒レベル4　避難指示発令中
-        </p>
-      </div>
+
+        <div className="flex min-h-7 items-center border-t border-outline/60 px-3">
+          <p className="inline-flex items-center gap-1 rounded bg-caution-soft px-1.5 py-0.5 text-[0.5625rem] font-black text-caution-ink">
+            <span>サンプル表示</span>
+            <span aria-hidden="true">｜</span>
+            <span>警戒レベル4・避難指示</span>
+          </p>
+        </div>
+      </header>
       <MapView />
     </section>
   );
