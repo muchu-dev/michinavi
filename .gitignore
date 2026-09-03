@@ -26,7 +26,6 @@ build/
 
 # Codex personal runtime/cache and project-local harness files.
 /.codex/
-/.agents/
 /docs/ai-harness/
 
 # debug
