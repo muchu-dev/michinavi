@@ -1,6 +1,7 @@
 import { createTRPCRouter } from "./init";
 import { areaRouter } from "./routers/area";
 import { contentFlagRouter } from "./routers/content-flag";
+import { evacuationRouter } from "./routers/evacuation";
 import { fallbackRouter } from "./routers/fallback";
 import { fieldReportRouter } from "./routers/field-report";
 import { fieldReportPhotoRouter } from "./routers/field-report-photo";
@@ -26,6 +27,7 @@ export const appRouter = createTRPCRouter({
   fieldReportPhoto: fieldReportPhotoRouter,
   area: areaRouter,
   contentFlag: contentFlagRouter,
+  evacuation: evacuationRouter,
   fallback: fallbackRouter,
   memberStatus: memberStatusRouter,
   moderation: moderationRouter,
