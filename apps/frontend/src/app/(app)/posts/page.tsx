@@ -251,6 +251,19 @@ export default function PostsPage() {
         <span className="ml-auto w-12" aria-hidden="true" />
       </header>
 
+      <div className="relative h-52 shrink-0 border-b border-outline">
+        <MapView
+          center={REPORT_REGION.center}
+          compact
+          regionName="投稿予定地点"
+          reports={visibleReports}
+          previewPosition={previewPosition}
+        />
+        <p className="pointer-events-none absolute bottom-3 left-3 z-[600] rounded-lg bg-surface/95 px-3 py-1.5 text-xs font-black text-ink shadow-card">
+          このピンの位置に投稿されます
+        </p>
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-3">
         {/* 通れる・注意が必要・通れないの選択欄。 */}
         <div

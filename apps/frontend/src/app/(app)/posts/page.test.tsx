@@ -112,7 +112,7 @@ describe("PostsPage", () => {
     ).toBe("1");
   });
 
-  it("previews the post position before opening a map-free form", () => {
+  it("shows the post position preview while the report form is open", () => {
     render(<PostsPage />);
 
     const reportButton = screen.getByRole("button", {
@@ -131,7 +131,15 @@ describe("PostsPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "この道の状況を報告する" }),
     );
-    expect(screen.queryByRole("img", { name: "投稿地点の地図" })).toBeNull();
+    const previewMap = screen.getByRole("img", {
+      name: "投稿地点の地図",
+    });
+    expect(
+      previewMap
+        .querySelector("[data-preview-position]")
+        ?.getAttribute("data-preview-position"),
+    ).toBe("[34.6383,133.6903]");
+    expect(screen.getByText("このピンの位置に投稿されます")).toBeTruthy();
     expect(screen.getByRole("radio", { name: "通れる" })).toBeTruthy();
   });
 
@@ -203,7 +211,7 @@ describe("PostsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "投稿する" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("img", { name: "投稿地点の地図" })).toBeTruthy();
+      expect(screen.queryByRole("radio", { name: "通れる" })).toBeNull();
     });
     const mapAfterSubmit = screen.getByRole("img", {
       name: "投稿地点の地図",
