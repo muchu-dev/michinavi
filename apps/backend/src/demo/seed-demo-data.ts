@@ -73,7 +73,7 @@ const DEMO_HOUSEHOLDS: DemoHousehold[] = [
     key: "sato",
     displayName: "デモ 佐藤",
     householdName: "デモ 佐藤家",
-    homeMeshCode: "5133451124",
+    homeMeshCode: "5133756531",
     carCount: 1,
     members: [
       { displayName: "デモ 佐藤", ageGroup: "adult" },
@@ -85,7 +85,7 @@ const DEMO_HOUSEHOLDS: DemoHousehold[] = [
     key: "tanaka",
     displayName: "デモ 田中",
     householdName: "デモ 田中家",
-    homeMeshCode: "5133451125",
+    homeMeshCode: "5133756532",
     carCount: 0,
     members: [
       { displayName: "デモ 田中", ageGroup: "adult" },
@@ -101,7 +101,7 @@ const DEMO_HOUSEHOLDS: DemoHousehold[] = [
     key: "suzuki",
     displayName: "デモ 鈴木",
     householdName: "デモ 鈴木家",
-    homeMeshCode: "5133451134",
+    homeMeshCode: "5133756513",
     carCount: 1,
     members: [
       { displayName: "デモ 鈴木", ageGroup: "adult" },
@@ -128,77 +128,82 @@ type DemoReport = {
  *
  * 同じ地点に複数の報告が集まる形にしてあるのは、集約の表示（E3）と
  * 推定（C3）が意味を持つ絵にするためである。
+ *
+ * メッシュコードは地図の初期表示位置（倉敷市真備町 34.6383, 133.6903 =
+ * 5133756531）とその隣接から選ぶ。投稿画面は表示中の地点と同じ 2 次メッシュ
+ * （先頭 6 桁）で絞り込むため、ここがずれるとデモを開いた直後の地図と
+ * 投稿一覧がどちらも 0 件になる。
  */
 const DEMO_REPORTS: DemoReport[] = [
   {
     householdKey: "sato",
-    meshCode: "5133451124",
+    meshCode: "5133756531",
     roadCondition: "passable",
     minutesAgo: 165,
   },
   {
     householdKey: "tanaka",
-    meshCode: "5133451124",
+    meshCode: "5133756531",
     roadCondition: "caution",
     minutesAgo: 120,
   },
   {
     householdKey: "suzuki",
-    meshCode: "5133451124",
+    meshCode: "5133756531",
     roadCondition: "caution",
     minutesAgo: 95,
   },
   {
     householdKey: "sato",
-    meshCode: "5133451125",
+    meshCode: "5133756533",
     roadCondition: "impassable",
     minutesAgo: 88,
   },
   {
     householdKey: "tanaka",
-    meshCode: "5133451125",
+    meshCode: "5133756533",
     roadCondition: "impassable",
     minutesAgo: 74,
   },
   {
     householdKey: "suzuki",
-    meshCode: "5133451125",
+    meshCode: "5133756533",
     roadCondition: "impassable",
     minutesAgo: 51,
   },
   {
     householdKey: "sato",
-    meshCode: "5133451134",
+    meshCode: "5133756532",
     roadCondition: "passable",
     minutesAgo: 47,
   },
   {
     householdKey: "tanaka",
-    meshCode: "5133451134",
+    meshCode: "5133756532",
     roadCondition: "passable",
     minutesAgo: 33,
   },
   {
     householdKey: "suzuki",
-    meshCode: "5133451135",
+    meshCode: "5133756534",
     roadCondition: "caution",
     minutesAgo: 28,
   },
   {
     householdKey: "sato",
-    meshCode: "5133451143",
+    meshCode: "5133756513",
     roadCondition: "impassable",
     minutesAgo: 21,
   },
   {
     householdKey: "tanaka",
-    meshCode: "5133451144",
+    meshCode: "5133756514",
     roadCondition: "passable",
     minutesAgo: 12,
   },
   {
     householdKey: "suzuki",
-    meshCode: "5133451144",
+    meshCode: "5133756514",
     roadCondition: "caution",
     minutesAgo: 4,
   },
