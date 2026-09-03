@@ -15,10 +15,16 @@ type LoginAction = (
 
 type LoginFormProps = {
   action?: LoginAction;
+  /** ログイン後に戻る画面。proxy が付けた `next` を検証済みの形で受け取る */
+  nextPath?: string;
   previewHref?: string;
 };
 
-export function LoginForm({ action = login, previewHref }: LoginFormProps) {
+export function LoginForm({
+  action = login,
+  nextPath,
+  previewHref,
+}: LoginFormProps) {
   const [state, formAction, pending] = useActionState(
     action,
     initialLoginState,
@@ -36,6 +42,10 @@ export function LoginForm({ action = login, previewHref }: LoginFormProps) {
       <h1 id="login-title" className="sr-only">
         ログイン
       </h1>
+
+      {nextPath ? (
+        <input defaultValue={nextPath} name="next" type="hidden" />
+      ) : null}
 
       <div className="space-y-1.5">
         <label className="block text-sm font-medium" htmlFor="email">

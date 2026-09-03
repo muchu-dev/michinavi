@@ -52,6 +52,19 @@ describe("LoginForm", () => {
     ).toBeNull();
   });
 
+  it("carries the requested destination through the form", () => {
+    const { container, rerender } = render(
+      <LoginForm action={vi.fn()} nextPath="/family/settings" />,
+    );
+
+    expect(
+      container.querySelector<HTMLInputElement>('input[name="next"]')?.value,
+    ).toBe("/family/settings");
+
+    rerender(<LoginForm action={vi.fn()} />);
+    expect(container.querySelector('input[name="next"]')).toBeNull();
+  });
+
   it("associates server validation errors with their inputs", async () => {
     const action = vi.fn(async () => ({
       fieldErrors: {
