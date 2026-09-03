@@ -7,7 +7,6 @@ import { api } from "@/lib/trpc/client";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type NearbyShelter = RouterOutputs["shelter"]["nearby"][number];
-type AssignmentResult = RouterOutputs["shelterAssignment"]["assign"];
 
 type RouteShelter = Pick<NearbyShelter, "id" | "name" | "distanceM"> & {
   expectedPeople?: number;
@@ -99,37 +98,19 @@ function RouteOptionCard({
   );
 }
 
-// デモ位置から近い避難所をDBで取得し、距離順の3候補を表示する。
+// デモ位置から近い避難所を取得し、距離と混雑状況を考慮した3候補を表示する。
 export function RoutePanel() {
-  // nearby APIが返す距離順の先頭3件を候補とし、先頭だけを推奨扱いにする。
   const nearbyQuery = api.shelter.nearby.useQuery({
     ...demoLocation,
     radiusM: 50_000,
     limit: 3,
   });
-  const apiUtils = api.useUtils();
-  const currentAssignment = api.shelterAssignment.current.useQuery();
-  const assignShelter = api.shelterAssignment.assign.useMutation({
-    onSuccess: async () => {
-      await apiUtils.shelterAssignment.current.invalidate();
-    },
-  });
-  const assignment = assignShelter.data;
-  const assignedShelter = toAssignedShelter(assignment);
-  const routeOptions: RouteShelter[] = assignment
-    ? [
-        ...(assignedShelter ? [assignedShelter] : []),
-        ...assignment.alternatives.slice(0, 2),
-      ]
-    : (nearbyQuery.data ?? []);
-
-  const requestAssignment = () => {
-    assignShelter.mutate({
-      ...demoLocation,
-      radiusM: 50_000,
-      candidateLimit: 3,
-    });
-  };
+  const nearbyShelters = nearbyQuery.data ?? [];
+  const loadsQuery = api.shelterAssignment.loads.useQuery(
+    { shelterIds: nearbyShelters.map((shelter) => shelter.id) },
+    { enabled: nearbyShelters.length > 0 },
+  );
+  const routeOptions = withShelterLoads(nearbyShelters, loadsQuery.data);
 
   return (
     <>
@@ -156,59 +137,26 @@ export function RoutePanel() {
             {nearbyQuery.isLoading ? "--" : routeOptions.length}件
           </span>
         </div>
-        {currentAssignment.data && !assignment && (
-          <p className="mb-2 rounded-xl border border-passable/40 bg-passable/10 px-3 py-2 text-xs font-bold text-passable">
-            現在の避難先：{currentAssignment.data.shelterName ?? "名称不明"}
-            （世帯{currentAssignment.data.partySize}人）
-          </p>
-        )}
-        <button
-          type="button"
-          onClick={requestAssignment}
-          disabled={assignShelter.isPending}
-          className="mb-3 min-h-11 w-full rounded-xl bg-brand px-4 text-xs font-black text-white disabled:cursor-wait disabled:opacity-60"
-        >
-          {assignShelter.isPending
-            ? "避難先を計算しています…"
-            : assignment
-              ? "混雑状況を更新して再割り当て"
-              : "混雑を考慮して避難先を決める"}
-        </button>
-        {assignShelter.error && (
+        {loadsQuery.error && (
           <p
             role="alert"
-            className="mb-3 rounded-xl border border-impassable bg-white px-3 py-3 text-center text-xs font-bold text-impassable"
+            className="mb-3 rounded-xl border border-caution bg-caution-soft px-3 py-3 text-center text-xs font-bold text-caution-ink"
           >
-            避難先を割り当てられませんでした。ログインと家族構成を確認してください。
-          </p>
-        )}
-        {assignment && (
-          <p
-            className={`mb-3 rounded-xl border px-3 py-3 text-xs font-bold ${
-              assignment.isOverCapacity
-                ? "border-caution bg-caution-soft text-caution-ink"
-                : "border-passable/40 bg-passable/10 text-passable"
-            }`}
-          >
-            {assignment.shelterName ?? "選択された避難所"}を、世帯
-            {assignment.partySize}人の避難先に設定しました。
-            {assignment.isOverCapacity
-              ? "周辺の避難所が混雑しているため、代替候補も確認してください。"
-              : "距離と現在の想定人数をもとに分散しています。"}
+            混雑状況を取得できないため、距離が近い順に表示しています。
           </p>
         )}
         {/* DB通信中・失敗・0件を区別し、候補がない理由を利用者へ示す。 */}
-        {nearbyQuery.isLoading && (
-          <p className="rounded-xl border border-outline bg-white px-3 py-5 text-center text-xs font-bold text-muted">
-            避難所情報を読み込んでいます
-          </p>
-        )}
         {nearbyQuery.error && (
           <p
             role="alert"
-            className="rounded-xl border border-impassable bg-white px-3 py-5 text-center text-xs font-bold text-impassable"
+            className="rounded-xl border border-caution bg-caution-soft px-3 py-3 text-center text-xs font-bold text-caution-ink"
           >
             避難先の候補を取得できませんでした
+          </p>
+        )}
+        {nearbyQuery.isLoading && (
+          <p className="rounded-xl border border-outline bg-white px-3 py-5 text-center text-xs font-bold text-muted">
+            避難所情報を読み込んでいます
           </p>
         )}
         {!nearbyQuery.isLoading &&
@@ -226,8 +174,8 @@ export function RoutePanel() {
               shelter={shelter}
               recommended={index === 0}
               recommendationReason={
-                assignment && index === 0
-                  ? "距離と避難所の混雑状況を考慮して割り当て"
+                loadsQuery.data && index === 0
+                  ? "距離と現在の混雑状況をもとに推奨"
                   : undefined
               }
             />
@@ -240,22 +188,34 @@ export function RoutePanel() {
           >
             i
           </span>
-          所要時間は直線距離を徒歩80m/分で換算した概算です。実際の道路状況と避難情報を確認してください。
+          表示する避難先は直線距離と現在の想定人数をもとにした提案です。混雑状況は変化するため、自治体の避難情報と現地の案内を確認してください。
         </p>
       </section>
     </>
   );
 }
 
-function toAssignedShelter(
-  assignment: AssignmentResult | undefined,
-): RouteShelter | null {
-  if (!assignment) return null;
+function withShelterLoads(
+  shelters: readonly NearbyShelter[],
+  loads: RouterOutputs["shelterAssignment"]["loads"] | undefined,
+): RouteShelter[] {
+  const options = shelters.map((shelter) => {
+    const load = loads?.find((item) => item.shelterId === shelter.id);
 
-  return {
-    id: assignment.shelterId,
-    name: assignment.shelterName ?? "名称不明の避難所",
-    distanceM: assignment.distanceM,
-    expectedPeople: assignment.expectedPeopleBefore + assignment.partySize,
-  };
+    return {
+      id: shelter.id,
+      name: shelter.name,
+      distanceM: shelter.distanceM,
+      expectedPeople: load?.expectedPeople,
+      occupancyRate: load?.occupancyRate,
+    };
+  });
+
+  if (!loads) return options;
+
+  return options.sort((a, b) => {
+    const aFull = a.occupancyRate !== null && (a.occupancyRate ?? 0) >= 1;
+    const bFull = b.occupancyRate !== null && (b.occupancyRate ?? 0) >= 1;
+    return Number(aFull) - Number(bFull) || a.distanceM - b.distanceM;
+  });
 }

@@ -202,6 +202,7 @@ export function ShelterPanel() {
     setCurrentLocation(demoLocation);
     setLocationMode("demo");
     setLocationError(null);
+    setSelectedShelterId(null);
   };
 
   return (
