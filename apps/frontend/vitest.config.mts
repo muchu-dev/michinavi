@@ -18,7 +18,10 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json-summary"],
       include: [
+        "src/app/auth/confirm/route.ts",
+        "src/app/forgot-password/actions.ts",
         "src/app/login/actions.ts",
+        "src/app/reset-password/actions.ts",
         "src/app/onboarding/page.tsx",
         "src/components/auth/**/*.tsx",
         "src/components/onboarding/**/*.tsx",
@@ -26,7 +29,7 @@ export default defineConfig({
         "src/components/map/**/*.tsx",
         "src/config/navigation.ts",
         "src/lib/supabase/proxy.ts",
-        "src/lib/auth/development-bypass.ts",
+        "src/lib/auth/**/*.ts",
         "src/lib/onboarding/**/*.ts",
       ],
       thresholds: {

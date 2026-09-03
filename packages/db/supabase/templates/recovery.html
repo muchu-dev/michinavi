@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ja">
+  <body>
+    <h2>パスワードの再設定</h2>
+    <p>
+      みちナビのパスワードを再設定します。
+      下のリンクを開いて、新しいパスワードを入力してください。
+    </p>
+    <p>
+      <a
+        href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password"
+        >パスワードを再設定する</a
+      >
+    </p>
+    <p>
+      このメールに心当たりがない場合は、そのまま破棄してください。
+      パスワードは変更されません。
+    </p>
+  </body>
+</html>

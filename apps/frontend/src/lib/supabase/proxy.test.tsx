@@ -88,7 +88,9 @@ describe("updateSession", () => {
     );
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost/login");
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/login?next=%2Ffamily",
+    );
   });
 
   it("keeps the login route public", async () => {
@@ -143,6 +145,84 @@ describe("updateSession", () => {
     );
     expect(response.headers.get("expires")).toBe("0");
     expect(response.headers.get("pragma")).toBe("no-cache");
+  });
+
+  it("remembers the requested page so login can return to it", async () => {
+    testState.getClaims.mockResolvedValue({ data: { claims: null } });
+
+    const response = await updateSession(
+      new NextRequest("http://localhost/family/settings?tab=share"),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/login?next=%2Ffamily%2Fsettings%3Ftab%3Dshare",
+    );
+  });
+
+  it("keeps the password recovery callback public", async () => {
+    testState.getClaims.mockResolvedValue({ data: { claims: null } });
+
+    const response = await updateSession(
+      new NextRequest("http://localhost/auth/confirm?type=recovery"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("sends a signed-in visitor away from the login screen", async () => {
+    testState.getClaims.mockResolvedValue({
+      data: { claims: { sub: "user-id" } },
+    });
+
+    const response = await updateSession(
+      new NextRequest("http://localhost/login"),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/onboarding",
+    );
+  });
+
+  it("sends a signed-in visitor back to the page they asked for", async () => {
+    testState.getClaims.mockResolvedValue({
+      data: { claims: { sub: "user-id" } },
+    });
+
+    const response = await updateSession(
+      new NextRequest("http://localhost/login?next=%2Ffamily"),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost/family");
+  });
+
+  it("keeps the recovery request screen reachable while signed in", async () => {
+    testState.getClaims.mockResolvedValue({
+      data: { claims: { sub: "user-id" } },
+    });
+
+    const response = await updateSession(
+      new NextRequest("http://localhost/forgot-password?error=link_expired"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("keeps the password reset screen reachable during recovery", async () => {
+    testState.getClaims.mockResolvedValue({
+      data: { claims: { sub: "user-id" } },
+    });
+
+    const response = await updateSession(
+      new NextRequest("http://localhost/reset-password"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it("preserves cleared auth cookies and cache headers on the login redirect", async () => {
