@@ -11,6 +11,7 @@ import { memberStatusRouter } from "./routers/member-status";
 import { moderationRouter } from "./routers/moderation";
 import { reportDigestRouter } from "./routers/report-digest";
 import { roadStatusRouter } from "./routers/road-status";
+import { routeRouter } from "./routers/route";
 import { shelterRouter } from "./routers/shelter";
 import { shelterAssignmentRouter } from "./routers/shelter-assignment";
 import { userRouter } from "./routers/user";
@@ -33,6 +34,7 @@ export const appRouter = createTRPCRouter({
   moderation: moderationRouter,
   reportDigest: reportDigestRouter,
   roadStatus: roadStatusRouter,
+  route: routeRouter,
   shelter: shelterRouter,
   shelterAssignment: shelterAssignmentRouter,
 });
