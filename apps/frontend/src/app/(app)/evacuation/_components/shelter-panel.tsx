@@ -214,6 +214,8 @@ export function ShelterPanel() {
           locationLabel={
             locationMode === "demo" ? "デモ位置（真備町箭田）" : undefined
           }
+          showLocationControl={false}
+          fillContainer
         />
       </div>
 

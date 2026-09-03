@@ -118,6 +118,8 @@ export function RoutePanel() {
         <MapView
           currentLocation={demoLocation}
           locationLabel="デモ位置（真備町箭田）"
+          showLocationControl={false}
+          fillContainer
         />
       </div>
       <section className="px-3 pb-5 pt-3" aria-labelledby="route-options-title">
