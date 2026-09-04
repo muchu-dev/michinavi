@@ -19,7 +19,13 @@ type ReportListResult = {
   isPending: boolean;
 };
 
-const { listUseQuery, mutateAsync } = vi.hoisted(() => ({
+const {
+  listUseQuery,
+  mutateAsync,
+  invalidateFieldReportList,
+  invalidateRoadStatusList,
+  invalidateReportDigestList,
+} = vi.hoisted(() => ({
   listUseQuery: vi.fn<() => ReportListResult>(() => ({
     data: [],
     dataUpdatedAt: Date.now(),
@@ -27,6 +33,9 @@ const { listUseQuery, mutateAsync } = vi.hoisted(() => ({
     isPending: false,
   })),
   mutateAsync: vi.fn(),
+  invalidateFieldReportList: vi.fn(),
+  invalidateRoadStatusList: vi.fn(),
+  invalidateReportDigestList: vi.fn(),
 }));
 
 vi.mock("@/components/map/map-view", () => ({
@@ -61,7 +70,9 @@ vi.mock("@/lib/trpc/client", () => ({
       list: { useQuery: listUseQuery },
     },
     useUtils: () => ({
-      fieldReport: { list: { invalidate: vi.fn() } },
+      fieldReport: { list: { invalidate: invalidateFieldReportList } },
+      roadStatus: { list: { invalidate: invalidateRoadStatusList } },
+      reportDigest: { list: { invalidate: invalidateReportDigestList } },
     }),
   },
 }));
@@ -274,6 +285,29 @@ describe("PostsPage", () => {
         .querySelector("[data-preview-position]")
         ?.getAttribute("data-preview-position"),
     ).toBe("null");
+  });
+
+  it("drops the estimate and digest caches after a successful post", async () => {
+    // 吹き出し（RoadStatusSummary）は roadStatus.list と reportDigest.list を
+    // キャッシュする。サーバーは投稿のたびにその2つを作り直すので（BE-16 / BE-18）、
+    // 投稿一覧だけ捨てると staleTime（30秒）のあいだ古い推定が出たままになる
+    mutateAsync.mockResolvedValueOnce({ id: "created" });
+    render(<PostsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "この道の状況を報告する" }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "通れる" }));
+    fireEvent.click(screen.getByRole("button", { name: "投稿する" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("投稿しました")).toBeTruthy();
+    });
+
+    expect(invalidateFieldReportList).toHaveBeenCalled();
+    expect(invalidateRoadStatusList).toHaveBeenCalled();
+    expect(invalidateReportDigestList).toHaveBeenCalled();
   });
 
   it("allows impassable submission without a cause and can reopen cause choices", async () => {

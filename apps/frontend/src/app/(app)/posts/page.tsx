@@ -176,7 +176,16 @@ export default function PostsPage() {
         meshCode,
         roadCondition: condition,
       });
-      await apiUtils.fieldReport.list.invalidate();
+      // 投稿は3つのキャッシュを同時に古くする。サーバーは投稿を保存したあとに
+      // その地点の推定（roadStatus）とまとめ（reportDigest）も作り直すので
+      // （BE-16 / BE-18）、投稿一覧だけ捨てると、地図の吹き出しが
+      // staleTime（30秒）のあいだ古い推定を出したままになる。
+      // 開いたままの吹き出しは自動では取り直さないので、ここで3つとも捨てる
+      await Promise.all([
+        apiUtils.fieldReport.list.invalidate(),
+        apiUtils.roadStatus.list.invalidate(),
+        apiUtils.reportDigest.list.invalidate(),
+      ]);
 
       setSuccessMessage("投稿しました");
       setCondition(null);
