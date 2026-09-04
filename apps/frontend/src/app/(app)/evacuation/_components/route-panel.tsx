@@ -3,6 +3,7 @@
 import type { AppRouter } from "@michinavi/backend";
 import type { inferRouterOutputs } from "@trpc/server";
 import { MapView } from "@/components/map/map-view";
+import { ErrorState } from "@/components/state/error-state";
 import { api } from "@/lib/trpc/client";
 import {
   evacuationDemoLocation,
@@ -152,12 +153,20 @@ export function RoutePanel({ isActive = true }: { isActive?: boolean }) {
         )}
         {/* DB通信中・失敗・0件を区別し、候補がない理由を利用者へ示す。 */}
         {nearbyQuery.error && (
-          <p
-            role="alert"
-            className="rounded-xl border border-caution bg-caution-soft px-3 py-3 text-center text-xs font-bold text-caution-ink"
-          >
-            避難先の候補を取得できませんでした
-          </p>
+          <div className="rounded-xl border border-outline bg-white">
+            <ErrorState
+              title="避難先の候補を取得できませんでした"
+              description="通信が不安定か、サーバが混み合っている可能性があります。電波の届く場所でもう一度お試しください。"
+              retryLabel={
+                nearbyQuery.isFetching
+                  ? "読み込んでいます…"
+                  : "もう一度読み込む"
+              }
+              onRetry={() => {
+                void nearbyQuery.refetch();
+              }}
+            />
+          </div>
         )}
         {nearbyQuery.isLoading && (
           <p className="rounded-xl border border-outline bg-white px-3 py-5 text-center text-xs font-bold text-muted">

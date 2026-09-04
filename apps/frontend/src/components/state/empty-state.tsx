@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { StateMessage } from "./state-message";
 
 type EmptyStateProps = {
@@ -6,6 +7,11 @@ type EmptyStateProps = {
   description?: string;
   actionHref?: string;
   actionLabel?: string;
+  /**
+   * 既定のリンクの代わりに置く「次にできること」。
+   * すでに画面上に導線がある場合は `null` を渡して二重に出さない。
+   */
+  action?: ReactNode;
 };
 
 /**
@@ -19,6 +25,7 @@ export function EmptyState({
   description = "あなたの1件目が、近所の人の判断材料になります。通れた道の報告でも役に立ちます。",
   actionHref = "/posts",
   actionLabel = "いまの状況を投稿する",
+  action,
 }: EmptyStateProps) {
   return (
     <StateMessage
@@ -26,12 +33,16 @@ export function EmptyState({
       title={title}
       description={description}
       action={
-        <Link
-          href={actionHref}
-          className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-5 text-sm font-black text-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        >
-          {actionLabel}
-        </Link>
+        action === undefined ? (
+          <Link
+            href={actionHref}
+            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-5 text-sm font-black text-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            {actionLabel}
+          </Link>
+        ) : (
+          action
+        )
       }
     />
   );

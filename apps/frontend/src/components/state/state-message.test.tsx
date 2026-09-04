@@ -44,6 +44,27 @@ describe("EmptyState", () => {
     expect(action.getAttribute("href")).toBe("/posts");
   });
 
+  it("gives way to the caller's own next action when the screen already has one", () => {
+    render(
+      <EmptyState
+        action={<button type="button">いまの状況を投稿する</button>}
+      />,
+    );
+
+    // 既定のリンクを重ねて出さない
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "いまの状況を投稿する" }),
+    ).toBeTruthy();
+  });
+
+  it("can leave out the next action when the screen shows one elsewhere", () => {
+    render(<EmptyState action={null} />);
+
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("can be reused for another list", () => {
     render(
       <EmptyState

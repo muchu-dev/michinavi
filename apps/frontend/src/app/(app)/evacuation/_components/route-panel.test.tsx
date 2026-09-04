@@ -1,5 +1,11 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+// 取得の成否をテストごとに切り替える
+const { nearbyState, refetchNearby } = vi.hoisted(() => ({
+  nearbyState: { error: null as Error | null },
+  refetchNearby: vi.fn(),
+}));
 
 const nearbyShelters = [
   { id: "1", name: "満員の最寄り避難所", distanceM: 240 },
@@ -20,9 +26,11 @@ vi.mock("@/lib/trpc/client", () => ({
     shelter: {
       nearby: {
         useQuery: () => ({
-          data: nearbyShelters,
-          error: null,
+          data: nearbyState.error ? undefined : nearbyShelters,
+          error: nearbyState.error,
           isLoading: false,
+          isFetching: false,
+          refetch: refetchNearby,
         }),
       },
     },
@@ -43,7 +51,11 @@ vi.mock("@/lib/trpc/client", () => ({
 
 import { RoutePanel } from "./route-panel";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  nearbyState.error = null;
+  refetchNearby.mockClear();
+});
 
 describe("RoutePanel", () => {
   it("shows congestion-aware choices without requiring a button click", () => {
@@ -60,6 +72,19 @@ describe("RoutePanel", () => {
     expect(screen.getByText(/定員の40%/)).toBeTruthy();
     expect(screen.getByText("約9分・直線距離約0.7km")).toBeTruthy();
     expect(screen.queryByText(/0\.7km \/ 空きのある避難所/)).toBeNull();
+  });
+
+  it("lets the reader retry when the candidates cannot be loaded", () => {
+    nearbyState.error = new Error("network down");
+
+    render(<RoutePanel />);
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "避難先の候補を取得できませんでした",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "もう一度読み込む" }));
+
+    expect(refetchNearby).toHaveBeenCalledTimes(1);
   });
 
   it("explains that the proposal and congestion data can change", () => {
