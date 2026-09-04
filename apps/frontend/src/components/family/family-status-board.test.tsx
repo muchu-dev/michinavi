@@ -224,6 +224,79 @@ describe("FamilyStatusBoard", () => {
     });
   });
 
+  it("keeps the help request when only the status changes", async () => {
+    // 「避難済み＋支援が必要」の人の状態だけを変えても、支援要請は下りない。
+    // ここで needsHelp を false に倒すと、支援が要る人が黙って一覧から漏れる
+    mockList({
+      data: [
+        member({
+          memberId: "grandma",
+          displayName: "祖母",
+          isSelf: false,
+          hasAccount: false,
+          status: "at_shelter",
+          needsHelp: true,
+        }),
+      ],
+    });
+    mutateAsync.mockResolvedValue({});
+
+    render(<FamilyStatusBoard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /変更する/ }));
+    fireEvent.click(screen.getByRole("button", { name: "避難中" }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({
+        memberId: "grandma",
+        status: "evacuating",
+        needsHelp: true,
+      });
+    });
+  });
+
+  it("does not offer 支援が必要 as a status so it cannot contradict the toggle", () => {
+    // status と needsHelp の両方から支援の要否を立てられると、
+    // 「バッジは支援が必要／ボタンは支援不要」という食い違いが作れてしまう。
+    // 支援の要否は専用ボタンだけが持つ
+    mockList({
+      data: [
+        member({ memberId: "self", displayName: "母", status: "safe_home" }),
+      ],
+    });
+
+    render(<FamilyStatusBoard />);
+    fireEvent.click(screen.getByRole("button", { name: /変更する/ }));
+
+    const options = screen.getByRole("list", { name: "母の安否を選ぶ" });
+    expect(
+      within(options).queryByRole("button", { name: "支援が必要" }),
+    ).toBeNull();
+    expect(
+      within(options).getByRole("button", { name: "避難済み" }),
+    ).toBeTruthy();
+  });
+
+  it("still displays 支援が必要 when the API returns it as the status", () => {
+    // 選ばせないだけで、他の経路で入った値は表示できる必要がある
+    mockList({
+      data: [
+        member({
+          memberId: "self",
+          displayName: "母",
+          status: "needs_help",
+          needsHelp: true,
+        }),
+      ],
+    });
+
+    render(<FamilyStatusBoard />);
+
+    expect(
+      screen.getByRole("button", { name: "母の安否は支援が必要。変更する" }),
+    ).toBeTruthy();
+  });
+
   it("shows an alert when the status update fails", async () => {
     mockList({ data: [member({ memberId: "self", displayName: "母" })] });
     mutateAsync.mockRejectedValue({ data: { code: "FORBIDDEN" } });

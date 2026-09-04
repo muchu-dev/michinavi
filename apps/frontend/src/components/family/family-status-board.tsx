@@ -7,13 +7,15 @@ import { api } from "@/lib/trpc/client";
 const statusDetails = {
   unknown: { label: "未確認", className: "bg-neutral-soft text-ink" },
   safe_home: { label: "自宅で無事", className: "bg-passable text-white" },
+  // caution(#f0a92e) の上に caution-contrast(#faf0de) は 1.78:1 しかない。
+  // caution-ink(#8a5200) なら 3.17:1 で、25px 太字（大きい文字）の 3:1 を満たす
   preparing: {
     label: "避難の準備中",
-    className: "bg-caution text-caution-contrast",
+    className: "bg-caution text-caution-ink",
   },
   evacuating: {
     label: "避難中",
-    className: "bg-caution text-caution-contrast",
+    className: "bg-caution text-caution-ink",
   },
   at_shelter: { label: "避難済み", className: "bg-passable text-white" },
   needs_help: { label: "支援が必要", className: "bg-impassable text-white" },
@@ -22,13 +24,22 @@ const statusDetails = {
 
 type MemberStatus = keyof typeof statusDetails;
 
-// 画面から選べる状態。`unknown` は「まだ登録がない」ことを表す値なので選ばせない。
+/**
+ * 画面から選べる状態。
+ *
+ * `unknown` は「まだ登録がない」ことを表す値なので選ばせない。
+ * `needs_help` も選ばせない。支援の要否は status とは別の needsHelp が持つ
+ * ためで（member_statuses の「status と別に持つ。避難済みでも支援が要る
+ * ことがある」）、両方から立てられると
+ * 「status=needs_help かつ needsHelp=false」のような、画面の中で
+ * 食い違う状態が作れてしまう。支援の要否は下の専用ボタンに一本化する。
+ * 他の経路で needs_help が入っていたときのために、表示だけは残す。
+ */
 const selectableStatuses = [
   "safe_home",
   "preparing",
   "evacuating",
   "at_shelter",
-  "needs_help",
   "safe_other",
 ] as const satisfies ReadonlyArray<MemberStatus>;
 
@@ -163,10 +174,13 @@ export function FamilyStatusBoard() {
                           type="button"
                           disabled={setStatus.isPending}
                           onClick={() =>
+                            // 支援の要否は引き継ぐ。ここで false に倒すと、
+                            // 「避難済み＋支援が必要」の人が「避難中」へ
+                            // 変えただけで支援要請が黙って取り下がる
                             submitStatus(
                               member.memberId,
                               option,
-                              option === "needs_help",
+                              member.needsHelp,
                             )
                           }
                           className="min-h-11 w-full rounded-lg border border-outline bg-surface px-3 text-sm font-bold text-ink outline-none focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:text-muted"
