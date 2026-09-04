@@ -6,6 +6,8 @@ import {
   type AttachedPhoto,
   PhotoAttachment,
 } from "@/components/post/photo-attachment";
+import { EmptyState } from "@/components/state/empty-state";
+import { ErrorState } from "@/components/state/error-state";
 import { toQuarterMeshCode } from "@/lib/location/mesh-code";
 import { readImageFile } from "@/lib/media/read-image-file";
 import { api } from "@/lib/trpc/client";
@@ -236,6 +238,41 @@ export default function PostsPage() {
     }
   };
 
+  // 取得に失敗した／0 件だった、を地図の上に重ねて知らせる（FE-20）。
+  // 地図ごと差し替えないのは、災害時に古い投稿でも読めたはずのものを
+  // 消してしまわないため。現在地の取得と投稿の導線もそのまま残る。
+  const reportListNotice: ReactNode = reportList.isError ? (
+    <ErrorState
+      title="投稿一覧を取得できませんでした"
+      description={
+        visibleReports.length > 0
+          ? "通信が不安定なようです。地図に出ているのは、最後に取得できた投稿です。"
+          : "通信が不安定か、サーバが混み合っている可能性があります。電波の届く場所でもう一度お試しください。"
+      }
+      retryLabel={
+        reportList.isFetching ? "読み込んでいます…" : "もう一度読み込む"
+      }
+      onRetry={() => {
+        void reportList.refetch();
+      }}
+    />
+  ) : !reportList.isPending && visibleReports.length === 0 ? (
+    <EmptyState
+      // 画面の下に投稿ボタンがあるので、投稿地点が決まる前は導線を重ねない
+      action={
+        mapPosition ? (
+          <button
+            type="button"
+            onClick={openReportForm}
+            className="min-h-12 w-full rounded-2xl bg-brand px-5 text-sm font-black text-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            いまの状況を投稿する
+          </button>
+        ) : null
+      }
+    />
+  ) : null;
+
   // 投稿ページを開いた直後に表示する地図画面。
   if (view === "map") {
     return (
@@ -272,14 +309,6 @@ export default function PostsPage() {
             {successMessage}
           </output>
         ) : null}
-        {reportList.isError ? (
-          <p
-            role="alert"
-            className="relative z-[600] bg-impassable px-4 py-2 text-center text-xs font-black text-white"
-          >
-            投稿一覧を取得できませんでした。再読み込みしてください。
-          </p>
-        ) : null}
         {reportList.isPending ? (
           <output className="relative z-[600] bg-surface px-4 py-2 text-center text-xs font-bold text-muted">
             投稿一覧を読み込んでいます
@@ -287,13 +316,23 @@ export default function PostsPage() {
         ) : null}
 
         {/* 現在地周辺と既存の道路情報を表示する地図。 */}
-        <MapView
-          center={REPORT_REGION.center}
-          regionName={displayedRegionName}
-          reports={visibleReports}
-          previewPosition={previewPosition}
-          onPositionChange={setMapPosition}
-        />
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <MapView
+            center={REPORT_REGION.center}
+            regionName={displayedRegionName}
+            reports={visibleReports}
+            previewPosition={previewPosition}
+            onPositionChange={setMapPosition}
+          />
+          {reportListNotice ? (
+            <div className="pointer-events-none absolute inset-0 z-[650] flex items-center justify-center p-4">
+              {/* 帯の外側は素通しにして、地図の操作を止めない */}
+              <div className="pointer-events-auto w-full max-w-[22rem] rounded-2xl border border-outline bg-surface/95 shadow-card">
+                {reportListNotice}
+              </div>
+            </div>
+          ) : null}
+        </div>
 
         {/* 道路状況の入力画面を開くボタン。 */}
         <div className="absolute inset-x-3 bottom-3 z-[700]">

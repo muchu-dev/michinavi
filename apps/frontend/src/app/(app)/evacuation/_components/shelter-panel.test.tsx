@@ -1,6 +1,16 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// 取得の成否をテストごとに切り替える
+const { queryState, refetchNearby, refetchDetail } = vi.hoisted(() => ({
+  queryState: {
+    nearbyError: null as Error | null,
+    detailError: null as Error | null,
+  },
+  refetchNearby: vi.fn(),
+  refetchDetail: vi.fn(),
+}));
+
 const nearbyShelters = ["第一避難所", "第二避難所", "第三避難所"].map(
   (name, index) => ({
     id: `shelter-${index}`,
@@ -49,20 +59,28 @@ vi.mock("@/lib/trpc/client", () => ({
     shelter: {
       nearby: {
         useQuery: (_input: unknown, options: { enabled: boolean }) => ({
-          data: options.enabled ? nearbyShelters : undefined,
-          error: null,
+          data:
+            options.enabled && !queryState.nearbyError
+              ? nearbyShelters
+              : undefined,
+          error: queryState.nearbyError,
           isLoading: false,
           isFetching: false,
+          refetch: refetchNearby,
         }),
       },
       byId: {
         useQuery: (input: { id: string }, options: { enabled: boolean }) => ({
           data:
-            options.enabled && input.id === shelterDetail.id
+            options.enabled &&
+            input.id === shelterDetail.id &&
+            !queryState.detailError
               ? shelterDetail
               : undefined,
-          error: null,
+          error: queryState.detailError,
           isLoading: false,
+          isFetching: false,
+          refetch: refetchDetail,
         }),
       },
     },
@@ -74,6 +92,10 @@ import { ShelterPanel } from "./shelter-panel";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  queryState.nearbyError = null;
+  queryState.detailError = null;
+  refetchNearby.mockClear();
+  refetchDetail.mockClear();
 });
 
 describe("ShelterPanel", () => {
@@ -130,6 +152,38 @@ describe("ShelterPanel", () => {
     expect(
       screen.getByRole("button", { name: "一覧へ戻る" }).className,
     ).toContain("min-h-11");
+  });
+
+  it("lets the reader retry instead of reading the failure as 'none nearby'", () => {
+    queryState.nearbyError = new Error("network down");
+
+    render(<ShelterPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "デモ位置" }));
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "避難所情報を取得できませんでした",
+    );
+    // 取得できなかっただけなのに「見つからなかった」と読ませない
+    expect(screen.queryByText("周辺に避難所が見つかりませんでした")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "もう一度読み込む" }));
+    expect(refetchNearby).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the reader retry the shelter detail without losing the list", () => {
+    render(<ShelterPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "デモ位置" }));
+    queryState.detailError = new Error("network down");
+    fireEvent.click(
+      screen.getByRole("button", { name: "第一避難所の詳細を表示" }),
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "避難所の詳細を取得できませんでした",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "もう一度読み込む" }));
+
+    expect(refetchDetail).toHaveBeenCalledTimes(1);
   });
 
   it("shows the selected shelter's main details", () => {
