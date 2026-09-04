@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MapView } from "@/components/map/map-view";
+import { ErrorState } from "@/components/state/error-state";
 import { api } from "@/lib/trpc/client";
 import {
   evacuationDemoLocation,
@@ -270,13 +271,22 @@ export function ShelterPanel({ isActive = true }: { isActive?: boolean }) {
           </p>
         )}
 
+        {/* 取得できなかったときは、その場でやり直せるようにする（FE-20） */}
         {nearbyQuery.error && (
-          <p
-            role="alert"
-            className="mb-2 px-1 text-[0.6875rem] font-bold text-impassable"
-          >
-            避難所情報を取得できませんでした。
-          </p>
+          <div className="mb-2 rounded-xl border border-outline bg-white">
+            <ErrorState
+              title="避難所情報を取得できませんでした"
+              description="通信が不安定か、サーバが混み合っている可能性があります。電波の届く場所でもう一度お試しください。"
+              retryLabel={
+                nearbyQuery.isFetching
+                  ? "読み込んでいます…"
+                  : "もう一度読み込む"
+              }
+              onRetry={() => {
+                void nearbyQuery.refetch();
+              }}
+            />
+          </div>
         )}
 
         {/* 未選択時は近隣一覧を、選択後はbyId APIの詳細を表示する。 */}
@@ -292,8 +302,10 @@ export function ShelterPanel({ isActive = true }: { isActive?: boolean }) {
                 「更新」から現在地を取得すると、近い順に避難所を表示します
               </p>
             )}
+            {/* 取得に失敗しただけなのに「見つからなかった」と読ませない */}
             {currentLocation !== null &&
               !nearbyQuery.isLoading &&
+              !nearbyQuery.error &&
               sortedShelters.length === 0 && (
                 <p className="rounded-xl border border-outline bg-white px-3 py-5 text-center text-xs font-bold text-muted">
                   周辺に避難所が見つかりませんでした
@@ -362,12 +374,20 @@ export function ShelterPanel({ isActive = true }: { isActive?: boolean }) {
             )}
 
             {detailQuery.error && (
-              <p
-                role="alert"
-                className="rounded-xl border border-impassable/30 bg-white px-3 py-5 text-center text-xs font-bold text-impassable"
-              >
-                避難所の詳細を取得できませんでした
-              </p>
+              <div className="rounded-xl border border-outline bg-white">
+                <ErrorState
+                  title="避難所の詳細を取得できませんでした"
+                  description="一覧の情報は表示できています。通信が落ち着いてから、もう一度開いてください。"
+                  retryLabel={
+                    detailQuery.isFetching
+                      ? "読み込んでいます…"
+                      : "もう一度読み込む"
+                  }
+                  onRetry={() => {
+                    void detailQuery.refetch();
+                  }}
+                />
+              </div>
             )}
 
             {detailQuery.data && (

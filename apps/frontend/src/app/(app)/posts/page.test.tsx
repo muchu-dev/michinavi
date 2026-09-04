@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type ReportListResult = {
   data: Array<{
@@ -17,17 +17,24 @@ type ReportListResult = {
   dataUpdatedAt: number;
   isError: boolean;
   isPending: boolean;
+  isFetching?: boolean;
+  refetch: () => void;
 };
 
-const { listUseQuery, mutateAsync } = vi.hoisted(() => ({
-  listUseQuery: vi.fn<() => ReportListResult>(() => ({
-    data: [],
-    dataUpdatedAt: Date.now(),
-    isError: false,
-    isPending: false,
-  })),
-  mutateAsync: vi.fn(),
-}));
+const { listUseQuery, mutateAsync, refetch } = vi.hoisted(() => {
+  const refetch = vi.fn();
+  return {
+    refetch,
+    listUseQuery: vi.fn<() => ReportListResult>(() => ({
+      data: [],
+      dataUpdatedAt: Date.now(),
+      isError: false,
+      isPending: false,
+      refetch,
+    })),
+    mutateAsync: vi.fn(),
+  };
+});
 
 vi.mock("@/components/map/map-view", () => ({
   MapView: ({
@@ -67,6 +74,17 @@ vi.mock("@/lib/trpc/client", () => ({
 }));
 
 import PostsPage from "./page";
+
+// mockReturnValue は clearAllMocks では消えないので、既定値を毎回置き直す
+beforeEach(() => {
+  listUseQuery.mockReturnValue({
+    data: [],
+    dataUpdatedAt: Date.now(),
+    isError: false,
+    isPending: false,
+    refetch,
+  });
+});
 
 afterEach(() => {
   cleanup();
@@ -116,6 +134,7 @@ describe("PostsPage", () => {
       dataUpdatedAt: Date.now(),
       isError: false,
       isPending: false,
+      refetch,
     });
 
     render(<PostsPage />);
@@ -126,6 +145,109 @@ describe("PostsPage", () => {
         .querySelector("[data-report-count]")
         ?.getAttribute("data-report-count"),
     ).toBe("2");
+  });
+
+  it("tells the reader that the area has no reports yet once the list arrives", () => {
+    render(<PostsPage />);
+
+    // 「0件」という数字だけでは、取得できなかったのか本当に無いのか分からない
+    expect(screen.getByText("まだこの地域の投稿がありません")).toBeTruthy();
+    // 投稿地点が決まるまでは、画面下のボタンと重ねて2つ出さない
+    expect(
+      screen.queryByRole("button", { name: "いまの状況を投稿する" }),
+    ).toBeNull();
+  });
+
+  it("opens the report form from the empty state once a position is known", () => {
+    render(<PostsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "いまの状況を投稿する" }),
+    );
+
+    expect(screen.getByRole("radio", { name: "通れる" })).toBeTruthy();
+  });
+
+  it("does not claim the area is empty while the list is still loading", () => {
+    listUseQuery.mockReturnValue({
+      data: [],
+      dataUpdatedAt: 0,
+      isError: false,
+      isPending: true,
+      refetch,
+    });
+
+    render(<PostsPage />);
+
+    expect(screen.queryByText("まだこの地域の投稿がありません")).toBeNull();
+    expect(screen.getByText("投稿一覧を読み込んでいます")).toBeTruthy();
+  });
+
+  it("offers a retry that re-fetches the list when it cannot be loaded", () => {
+    listUseQuery.mockReturnValue({
+      data: [],
+      dataUpdatedAt: 0,
+      isError: true,
+      isPending: false,
+      refetch,
+    });
+
+    render(<PostsPage />);
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "投稿一覧を取得できませんでした",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "もう一度読み込む" }));
+
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the last reports on the map and says so when a refresh fails", () => {
+    listUseQuery.mockReturnValue({
+      data: [
+        {
+          id: "stale",
+          meshCode: "5133756531",
+          roadCondition: "impassable",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      dataUpdatedAt: Date.now(),
+      isError: true,
+      isPending: false,
+      refetch,
+    });
+
+    render(<PostsPage />);
+
+    // 災害時は古い情報でも読めることが優先なので、地図は消さない
+    expect(
+      screen
+        .getByRole("img", { name: "投稿地点の地図" })
+        .querySelector("[data-report-count]")
+        ?.getAttribute("data-report-count"),
+    ).toBe("1");
+    expect(screen.getByRole("alert").textContent).toContain(
+      "最後に取得できた投稿です",
+    );
+  });
+
+  it("shows that a retry is running instead of looking unresponsive", () => {
+    listUseQuery.mockReturnValue({
+      data: [],
+      dataUpdatedAt: 0,
+      isError: true,
+      isPending: false,
+      isFetching: true,
+      refetch,
+    });
+
+    render(<PostsPage />);
+
+    expect(
+      screen.getByRole("button", { name: "読み込んでいます…" }),
+    ).toBeTruthy();
   });
 
   it("shows the post position preview while the report form is open", () => {
@@ -233,6 +355,7 @@ describe("PostsPage", () => {
       dataUpdatedAt: Date.now(),
       isError: false,
       isPending: false,
+      refetch,
     });
     mutateAsync.mockResolvedValueOnce({ id: "created" });
     render(<PostsPage />);
