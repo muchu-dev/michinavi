@@ -6,6 +6,11 @@ vi.mock("./app-navigation", () => ({
   AppNavigation: () => <nav aria-label="メインナビゲーション" />,
 }));
 
+// QuickPostAction が現在のパスを見るため（FE-19）
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+}));
+
 afterEach(cleanup);
 
 describe("AppShell", () => {
@@ -21,6 +26,20 @@ describe("AppShell", () => {
     expect(
       screen.getByRole("navigation", { name: "メインナビゲーション" }),
     ).toBeDefined();
+  });
+
+  it("keeps the primary action inside the shell, above the navigation (FE-19)", () => {
+    render(
+      <AppShell>
+        <h1>テスト画面</h1>
+      </AppShell>,
+    );
+
+    expect(
+      screen
+        .getByRole("link", { name: "いまの状況を投稿" })
+        .getAttribute("href"),
+    ).toBe("/posts");
   });
 
   it("offers a keyboard skip link to the main content", () => {

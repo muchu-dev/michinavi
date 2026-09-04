@@ -28,7 +28,7 @@ export function AppNavigation() {
               <Link
                 href={item.href}
                 aria-current={isCurrent ? "page" : undefined}
-                className="group flex h-full min-h-11 flex-col items-center justify-center gap-1 px-1 text-xs font-bold text-muted transition-colors hover:text-brand focus-visible:outline-3 focus-visible:outline-offset-[-3px] focus-visible:outline-brand aria-[current=page]:text-brand"
+                className="group flex h-full min-h-14 flex-col items-center justify-center gap-1 px-1 text-sm font-bold text-muted transition-colors hover:text-brand focus-visible:outline-3 focus-visible:outline-offset-[-3px] focus-visible:outline-brand aria-[current=page]:text-brand"
               >
                 <span
                   aria-hidden="true"
