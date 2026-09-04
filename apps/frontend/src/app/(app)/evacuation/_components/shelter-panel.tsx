@@ -1,17 +1,12 @@
 "use client";
 
-import type { AppRouter } from "@michinavi/backend";
-import type { inferRouterOutputs } from "@trpc/server";
 import { useEffect, useMemo, useState } from "react";
 import { MapView } from "@/components/map/map-view";
 import { api } from "@/lib/trpc/client";
-
-type RouterOutputs = inferRouterOutputs<AppRouter>;
-type NearbyShelter = RouterOutputs["shelter"]["nearby"][number];
-
-type ShelterWithDistance = NearbyShelter & {
-  distanceKm: number | null;
-};
+import {
+  evacuationDemoLocation,
+  nearbyShelterRadiusM,
+} from "./evacuation-demo";
 
 // 現在地とデモ位置を同じ形式で扱う。
 type Location = {
@@ -19,10 +14,7 @@ type Location = {
   longitude: number;
 };
 
-const demoLocation: Location = {
-  latitude: 34.6383,
-  longitude: 133.6903,
-};
+const disabledShelterId = "00000000-0000-0000-0000-000000000000";
 
 // 受け入れ条件アイコンへ渡す種別と可否を定義する。
 type AcceptanceIconProps = {
@@ -129,7 +121,7 @@ function acceptsCondition(
 }
 
 // 避難所タブの地図と現在地に近い避難所一覧を表示
-export function ShelterPanel() {
+export function ShelterPanel({ isActive = true }: { isActive?: boolean }) {
   // 位置情報・一覧更新時刻・詳細選択をパネル内の状態として管理する。
   const [sheltersUpdatedAt, setSheltersUpdatedAt] = useState("--:--");
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
@@ -146,22 +138,21 @@ export function ShelterPanel() {
     {
       latitude: currentLocation?.latitude ?? 0,
       longitude: currentLocation?.longitude ?? 0,
-      radiusM: 50_000,
+      radiusM: nearbyShelterRadiusM,
       limit: 10,
     },
     { enabled: currentLocation !== null },
   );
+  // useQueryは無効時も入力が必須なため、enabled=falseの間だけ有効な形式のIDを渡す。
   const detailQuery = api.shelter.byId.useQuery(
-    { id: selectedShelterId ?? "00000000-0000-0000-0000-000000000000" },
+    { id: selectedShelterId ?? disabledShelterId },
     { enabled: selectedShelterId !== null },
   );
 
-  // APIの距離を基準に並べ直し、表示用データを元のレスポンスから分離する。
-  const sortedShelters = useMemo<ShelterWithDistance[]>(
+  // APIの距離を基準に並べ直し、表示用配列を元のレスポンスから分離する。
+  const sortedShelters = useMemo(
     () =>
-      [...(nearbyQuery.data ?? [])]
-        .map((shelter) => ({ ...shelter, distanceKm: null }))
-        .sort((a, b) => a.distanceM - b.distanceM),
+      [...(nearbyQuery.data ?? [])].sort((a, b) => a.distanceM - b.distanceM),
     [nearbyQuery.data],
   );
 
@@ -199,7 +190,7 @@ export function ShelterPanel() {
 
   // シード避難所を確認できる真備町箭田の代表点へ、明示的にデモ位置を切り替える。
   const useDemoLocation = () => {
-    setCurrentLocation(demoLocation);
+    setCurrentLocation(evacuationDemoLocation);
     setLocationMode("demo");
     setLocationError(null);
     setSelectedShelterId(null);
@@ -211,6 +202,7 @@ export function ShelterPanel() {
       <div className="relative h-[19rem] shrink-0 overflow-hidden border-b border-outline">
         <MapView
           currentLocation={currentLocation}
+          isVisible={isActive}
           locationLabel={
             locationMode === "demo" ? "デモ位置（真備町箭田）" : undefined
           }

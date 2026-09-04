@@ -41,7 +41,7 @@ export default function EvacuationPage() {
           type="button"
           aria-pressed={selectedTab === "shelter"}
           onClick={() => setSelectedTab("shelter")}
-          className={`bg-brand px-4 text-white focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white ${
+          className={`bg-brand px-4 text-ink focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-ink ${
             selectedTab === "route" ? "rounded-tl-2xl" : ""
           }`}
         >
@@ -49,9 +49,22 @@ export default function EvacuationPage() {
         </button>
       </div>
 
-      {/* 選択された機能だけを描画し、各パネル内の状態を互いに分離する。 */}
+      {/* 両パネルを維持したまま表示を切り替え、取得済みの状態を保持する。 */}
       <div className="flex min-h-0 flex-1 flex-col">
-        {selectedTab === "route" ? <RoutePanel /> : <ShelterPanel />}
+        <div
+          aria-hidden={selectedTab !== "route"}
+          className={`${selectedTab === "route" ? "flex" : "hidden"} min-h-0 flex-1 flex-col`}
+          data-testid="route-panel-container"
+        >
+          <RoutePanel isActive={selectedTab === "route"} />
+        </div>
+        <div
+          aria-hidden={selectedTab !== "shelter"}
+          className={`${selectedTab === "shelter" ? "flex" : "hidden"} min-h-0 flex-1 flex-col`}
+          data-testid="shelter-panel-container"
+        >
+          <ShelterPanel isActive={selectedTab === "shelter"} />
+        </div>
       </div>
     </section>
   );

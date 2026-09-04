@@ -54,8 +54,12 @@ describe("RoutePanel", () => {
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getAllByText("推奨")).toHaveLength(1);
     expect(screen.getByText("徒歩で空きのある避難所へ")).toBeTruthy();
-    expect(screen.getByText("距離と現在の混雑状況をもとに推奨")).toBeTruthy();
+    expect(
+      screen.getByText("空きのある避難所から、直線距離が近い順に推奨"),
+    ).toBeTruthy();
     expect(screen.getByText(/定員の40%/)).toBeTruthy();
+    expect(screen.getByText("約9分・直線距離約0.7km")).toBeTruthy();
+    expect(screen.queryByText(/0\.7km \/ 空きのある避難所/)).toBeNull();
   });
 
   it("explains that the proposal and congestion data can change", () => {

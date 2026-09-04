@@ -35,6 +35,7 @@ export function MapCanvas({
   onPositionChange,
   compact = false,
   currentLocation = null,
+  isVisible = true,
   locationLabel,
   showDemoLocation = false,
   showLocationControl = true,
@@ -45,6 +46,7 @@ export function MapCanvas({
   onPositionChange?: (position: [number, number]) => void;
   compact?: boolean;
   currentLocation?: { latitude: number; longitude: number } | null;
+  isVisible?: boolean;
   locationLabel?: string;
   showDemoLocation?: boolean;
   showLocationControl?: boolean;
@@ -57,11 +59,21 @@ export function MapCanvas({
     "現在地を表示するには位置情報を許可してください",
   );
   const locationWatchId = useRef<number | null>(null);
-  const controlledPosition: [number, number] | null = currentLocation
-    ? [currentLocation.latitude, currentLocation.longitude]
-    : showDemoLocation
-      ? center
-      : null;
+  const currentLatitude = currentLocation?.latitude;
+  const currentLongitude = currentLocation?.longitude;
+  const [centerLatitude, centerLongitude] = center;
+  const controlledPosition = useMemo<[number, number] | null>(() => {
+    if (currentLatitude !== undefined && currentLongitude !== undefined) {
+      return [currentLatitude, currentLongitude];
+    }
+    return showDemoLocation ? [centerLatitude, centerLongitude] : null;
+  }, [
+    centerLatitude,
+    centerLongitude,
+    currentLatitude,
+    currentLongitude,
+    showDemoLocation,
+  ]);
   const displayedLocation = controlledPosition ?? currentPosition;
   const reportGroups = useMemo(() => groupReportsByMesh(reports), [reports]);
   const selectedReportPreview = useMemo(() => {
@@ -90,7 +102,9 @@ export function MapCanvas({
     setLocationMessage("現在地を取得しています");
 
     // 位置が更新されるたびにピンと地図中心を追従させる。
-    locationWatchId.current = navigator.geolocation.watchPosition(
+    let watchId: number | null = null;
+    let failedBeforeRegistration = false;
+    watchId = navigator.geolocation.watchPosition(
       ({ coords }) => {
         const position: [number, number] = [coords.latitude, coords.longitude];
         setCurrentPosition(position);
@@ -99,7 +113,14 @@ export function MapCanvas({
         setLocationMessage("現在地を追跡しています");
       },
       (error) => {
-        locationWatchId.current = null;
+        if (watchId === null) {
+          failedBeforeRegistration = true;
+        } else {
+          navigator.geolocation.clearWatch(watchId);
+          if (locationWatchId.current === watchId) {
+            locationWatchId.current = null;
+          }
+        }
         setLocationStatus("error");
         setLocationMessage(
           error.code === error.PERMISSION_DENIED
@@ -113,6 +134,11 @@ export function MapCanvas({
         maximumAge: 60_000,
       },
     );
+    if (failedBeforeRegistration) {
+      navigator.geolocation.clearWatch(watchId);
+      return;
+    }
+    locationWatchId.current = watchId;
   }, [onPositionChange]);
 
   useEffect(() => {
@@ -158,6 +184,7 @@ export function MapCanvas({
         scrollWheelZoom={false}
         className={`absolute inset-0 h-full w-full ${compact ? "min-h-full" : "min-h-[30rem]"}`}
       >
+        <InvalidateMapSize isVisible={isVisible} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -342,11 +369,25 @@ function groupReportsByMesh(reports: MapReport[]) {
 
 function MoveMapToPosition({ position }: { position: [number, number] }) {
   const map = useMap();
+  const [latitude, longitude] = position;
 
   useEffect(() => {
-    // 現在地または投稿地点が更新されたら地図の中心へ移す。
-    map.setView(position, 16);
-  }, [map, position]);
+    // 座標が実際に変わったときだけ中心へ移し、利用者が選んだズームは維持する。
+    map.setView([latitude, longitude], map.getZoom());
+  }, [latitude, longitude, map]);
+
+  return null;
+}
+
+function InvalidateMapSize({ isVisible }: { isVisible: boolean }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    // 非表示中に初期化されたLeafletへ表示後の寸法だけを再取得させる。
+    map.invalidateSize({ animate: false, pan: false });
+  }, [isVisible, map]);
 
   return null;
 }

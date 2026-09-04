@@ -4,6 +4,10 @@ import type { AppRouter } from "@michinavi/backend";
 import type { inferRouterOutputs } from "@trpc/server";
 import { MapView } from "@/components/map/map-view";
 import { api } from "@/lib/trpc/client";
+import {
+  evacuationDemoLocation,
+  nearbyShelterRadiusM,
+} from "./evacuation-demo";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type NearbyShelter = RouterOutputs["shelter"]["nearby"][number];
@@ -13,8 +17,7 @@ type RouteShelter = Pick<NearbyShelter, "id" | "name" | "distanceM"> & {
   occupancyRate?: number | null;
 };
 
-// DBのデモ避難所を確認できる地点と、徒歩時間の概算に使う歩行速度を定義する。
-const demoLocation = { latitude: 34.6383, longitude: 133.6903 };
+// 徒歩時間の概算に使う歩行速度。
 const walkingMetersPerMinute = 80;
 
 function getWalkingMinutes(distanceM: number) {
@@ -72,8 +75,7 @@ function RouteOptionCard({
         </div>
         <p className="mt-1 text-xs font-bold text-muted">
           約{walkingMinutes}分・直線距離約
-          {distanceKm < 10 ? distanceKm.toFixed(1) : Math.round(distanceKm)}km /{" "}
-          {shelter.name}
+          {distanceKm < 10 ? distanceKm.toFixed(1) : Math.round(distanceKm)}km
         </p>
         <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-muted">
           <span aria-hidden="true" className="size-2.5 rounded-full bg-muted" />
@@ -99,10 +101,10 @@ function RouteOptionCard({
 }
 
 // デモ位置から近い避難所を取得し、距離と混雑状況を考慮した3候補を表示する。
-export function RoutePanel() {
+export function RoutePanel({ isActive = true }: { isActive?: boolean }) {
   const nearbyQuery = api.shelter.nearby.useQuery({
-    ...demoLocation,
-    radiusM: 50_000,
+    ...evacuationDemoLocation,
+    radiusM: nearbyShelterRadiusM,
     limit: 3,
   });
   const nearbyShelters = nearbyQuery.data ?? [];
@@ -116,7 +118,8 @@ export function RoutePanel() {
     <>
       <div className="relative h-[19rem] shrink-0 overflow-hidden border-b border-outline">
         <MapView
-          currentLocation={demoLocation}
+          currentLocation={evacuationDemoLocation}
+          isVisible={isActive}
           locationLabel="デモ位置（真備町箭田）"
           showLocationControl={false}
           fillContainer
@@ -177,7 +180,7 @@ export function RoutePanel() {
               recommended={index === 0}
               recommendationReason={
                 loadsQuery.data && index === 0
-                  ? "距離と現在の混雑状況をもとに推奨"
+                  ? "空きのある避難所から、直線距離が近い順に推奨"
                   : undefined
               }
             />
