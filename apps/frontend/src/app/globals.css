@@ -3,8 +3,15 @@
 :root {
   --background: #f4f6f7;
   --foreground: #1d1b20;
-  /* 白抜きの文字を載せても 4.5:1 を超える濃さにする（FE-19） */
-  --brand: #3f63a5;
+  /* 白文字を載せる面なので、白との比が 4.5:1 を下回らない濃さにする（WCAG 2.1 AA）。
+     #597ebf は 4.07:1 で、12px の白文字（投稿ボタン、ヘッダー）が基準を満たしていなかった。
+     加えて、この色は --app-surface（カード面）の上に文字色としても載る。白の上だけを
+     見て決めると #4d72b5 のようにカード上で 4.37:1 まで落ちるため、白で 5.21:1 /
+     カード面で 4.76:1 になる濃さにしている（FE-19） */
+  --brand: #486cae;
+  /* --brand の hover 用。`bg-brand/90` のように半透明で薄めると、下地の白と合成されて
+     基準を割るため、不透明のまま濃くした専用トークンを持つ。白文字との比は 6.17:1 */
+  --brand-strong: #41619a;
   --brand-soft: #c7dcff;
   /* surface / app-surface / app-canvas のどれに載せても 5:1 を超える濃さ（FE-19） */
   --muted: #5c636b;
@@ -17,7 +24,9 @@
   --caution: #f0a92e;
   --caution-soft: #fff2d8;
   --caution-ink: #8a5200;
-  --caution-contrast: #faf0de;
+  /* --caution（黄）の面に載せる前景色。薄いクリーム（#faf0de）では比が 1.78:1 しかなく、
+     「支援が必要」のような読み落とせない文字が読めなかったため濃い側へ寄せた */
+  --caution-contrast: #2b1d00;
   --impassable: #c7362a;
   --impassable-soft: var(--color-red-50);
   /* タップ領域の最小の一辺。src/config/disaster-ui.ts と同じ値（FE-19） */
@@ -30,6 +39,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
   --color-brand-soft: var(--brand-soft);
   --color-muted: var(--muted);
   --color-outline: var(--outline);
