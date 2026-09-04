@@ -162,10 +162,13 @@ describe("MapCanvas", () => {
     expect(screen.getByText("通行不可")).toBeTruthy();
     expect(screen.getByText("注意")).toBeTruthy();
     // 確認投票のような未実装の操作を紛れ込ませない。
-    // 地図の上に出るボタンは現在地の追跡だけ
+    // 地図の上に出るのは現在地の追跡と、投稿ごとの通報（FE-18）だけ。
+    // 件数ではなく種類で見るのは、投稿が増えれば通報ボタンも増えるため
     expect(
-      screen.getAllByRole("button").map((button) => button.textContent),
-    ).toEqual(["現在地を追跡"]);
+      new Set(
+        screen.getAllByRole("button").map((button) => button.textContent),
+      ),
+    ).toEqual(new Set(["現在地を追跡", "この投稿を通報する"]));
   });
 
   it("ignores expired reports and invalid mesh codes", () => {
