@@ -50,4 +50,23 @@ describe("AppShell", () => {
     ).toBe("#main-content");
     expect(screen.getByRole("main").id).toBe("main-content");
   });
+
+  it("uses the existing high-contrast ink token for a caution header", () => {
+    const { container } = render(
+      <AppShell>
+        <section data-app-header-tone="caution">本文</section>
+      </AppShell>,
+    );
+
+    const shell = container.querySelector(".shadow-app");
+    expect(shell?.className).toContain(
+      "[&:has([data-app-header-tone=caution])>header]:text-ink",
+    );
+    expect(container.querySelector("header")?.className).toContain(
+      "text-white",
+    );
+    expect(screen.getByText("地域防災ナビゲーション").className).toContain(
+      "text-current",
+    );
+  });
 });
