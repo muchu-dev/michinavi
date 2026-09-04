@@ -384,4 +384,35 @@ describe("MapCanvas", () => {
 
     expect(screen.getByRole("button", { name: "現在地を追跡" })).toBeTruthy();
   });
+
+  it("keeps the location control usable with gloves and without zooming (FE-19)", () => {
+    render(<MapCanvas />);
+
+    // .tap-target は globals.css で --tap-min（44px）を最小の一辺にする
+    const trackButton = screen.getByRole("button", { name: "現在地を追跡" });
+    expect(trackButton.className).toContain("tap-target");
+    expect(trackButton.className).toContain("text-sm");
+    expect(screen.getByRole("status").className).toContain("text-sm");
+  });
+
+  it("prints the report count on a pin at a readable size (FE-19)", () => {
+    render(
+      <MapCanvas
+        reports={[
+          {
+            id: "report-1",
+            meshCode: "5133756531",
+            roadCondition: "passable",
+            createdAt: "2026-08-29T00:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    // 52px 表示のまま font-size 10 だと実寸 8px になるので、原寸で描く
+    const icon =
+      screen.getByTestId("report-marker").getAttribute("data-icon-html") ?? "";
+    expect(icon).toContain('viewBox="0 0 64 64" width="64" height="64"');
+    expect(icon).toContain('font-size="14"');
+  });
 });

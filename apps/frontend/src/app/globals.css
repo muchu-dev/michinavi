@@ -22,6 +22,8 @@
   --impassable-soft: var(--color-red-50);
   /* タップ領域の最小の一辺。src/config/disaster-ui.ts と同じ値（FE-19） */
   --tap-min: 2.75rem;
+  /* 補助的な文字の最小サイズ。src/config/disaster-ui.ts と同じ値（FE-19） */
+  --font-supporting-min: 0.875rem;
 }
 
 @theme inline {
@@ -114,13 +116,44 @@ a {
   mask-size: contain;
 }
 
+/*
+ * Leaflet が leaflet.css で持ち込む既定値は、災害時の基準（補助 14px 以上 /
+ * タップ領域 44px 以上）を下回る。読み込み順は layout.tsx で leaflet.css →
+ * globals.css なので、ここでまとめて上書きする（FE-19）。
+ * 上書きすべきセレクタの一覧は src/config/disaster-ui.ts が持ち、
+ * disaster-ui.test.tsx がこのファイルの数値を検査する。
+ */
 .leaflet-container {
   background: #e8eeec;
   font-family: inherit;
+  /* 既定 12px。吹き出し本文は em 指定なので、この値に追従して大きくなる */
+  font-size: var(--font-supporting-min);
 }
 
 .leaflet-control-attribution {
-  font-size: 0.625rem;
+  font-size: var(--font-supporting-min);
+}
+
+/* ズーム操作は既定 26px（タッチ端末でも 30px）しかないので指で押せる大きさにする */
+.leaflet-bar a,
+.leaflet-touch .leaflet-bar a {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  line-height: var(--tap-min);
+  font-size: 1.375rem;
+}
+
+/* 吹き出しの閉じるボタンも既定 24px なので広げる */
+.leaflet-container a.leaflet-popup-close-button {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  line-height: var(--tap-min);
+  font-size: 1.25rem;
+}
+
+/* 閉じるボタンを広げた分、吹き出し本文が重ならないよう右側の余白を確保する */
+.leaflet-popup-content {
+  margin-right: var(--tap-min);
 }
 
 /* 端末側でコントラストを上げている人には、さらに強い配色を出す（FE-19） */

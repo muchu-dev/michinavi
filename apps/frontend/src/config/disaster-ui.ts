@@ -55,6 +55,10 @@ export const contrastPairs = [
  *
  * 画面が増えたらここに足す。全ファイルを対象にしないのは、
  * 検査の対象がどこまでかを一覧で分かるようにしておくためである。
+ *
+ * 「地図を組み立てている側（map-view.tsx）だけを見て、実際に描いている側
+ * （map-canvas.tsx）を見ない」と、検査は通るのに画面は基準を満たさない、
+ * という状態になる。描画するファイルも必ず入れる。
  */
 export const disasterUiCheckedFiles = [
   "src/app/(app)/page.tsx",
@@ -62,5 +66,44 @@ export const disasterUiCheckedFiles = [
   "src/components/app-shell/app-shell.tsx",
   "src/components/app-shell/feature-placeholder.tsx",
   "src/components/app-shell/quick-post-action.tsx",
+  "src/components/map/map-canvas.tsx",
   "src/components/map/map-view.tsx",
+] as const;
+
+/**
+ * Leaflet が leaflet.css で持ち込む、基準を下回る既定値。
+ * globals.css で上書きし続ける必要があるので、セレクタと必要な下限を持つ。
+ *
+ * ライブラリの CSS はアプリのコードを読んでも見えない。ここに書き出して
+ * テストから検査しないと、地図の実UIだけが基準から外れたままになる。
+ */
+export const leafletOverrides = [
+  {
+    /** 既定 12px。吹き出し本文は em 指定なのでこの値に追従する */
+    selectors: [".leaflet-container"],
+    properties: ["font-size"],
+    minPx: disasterUi.minSupportingFontPx,
+    usage: "地図と吹き出しの本文",
+  },
+  {
+    /** 既定 11px。地図右下の出典表示 */
+    selectors: [".leaflet-control-attribution"],
+    properties: ["font-size"],
+    minPx: disasterUi.minSupportingFontPx,
+    usage: "地図の出典表示",
+  },
+  {
+    /** ズーム操作。既定 26px、タッチ端末向けの指定でも 30px */
+    selectors: [".leaflet-bar a", ".leaflet-touch .leaflet-bar a"],
+    properties: ["width", "height", "line-height"],
+    minPx: disasterUi.minTapTargetPx,
+    usage: "ズーム操作",
+  },
+  {
+    /** 吹き出しを閉じるボタン。既定 24px */
+    selectors: [".leaflet-container a.leaflet-popup-close-button"],
+    properties: ["width", "height", "line-height"],
+    minPx: disasterUi.minTapTargetPx,
+    usage: "吹き出しを閉じるボタン",
+  },
 ] as const;
