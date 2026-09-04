@@ -246,7 +246,7 @@ export function OnboardingFlow({
               </button>
             ) : null}
             <button
-              className="min-h-12 flex-1 rounded-xl bg-brand px-5 font-black text-white shadow-card transition-colors hover:bg-brand/90 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-wait disabled:bg-muted"
+              className="min-h-12 flex-1 rounded-xl bg-brand px-5 font-black text-white shadow-card transition-colors hover:bg-brand-strong focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-wait disabled:bg-muted"
               disabled={isRequestingPermissions}
               onClick={step === 6 ? finish : () => void goNext()}
               type="button"

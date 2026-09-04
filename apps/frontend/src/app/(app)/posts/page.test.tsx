@@ -75,24 +75,40 @@ afterEach(() => {
 });
 
 describe("PostsPage", () => {
-  it("keeps the existing report list API contract", () => {
+  it("asks the server to scope the report list to the current regional mesh", () => {
     render(<PostsPage />);
 
-    expect(listUseQuery).toHaveBeenCalledWith({ limit: 100 });
+    // 絞り込みは DB 側で行う。取得した 100 件を画面で捨てる作りだと、
+    // 他の地域の投稿が増えたときに自分の地域が窓から押し出されて空になる
+    expect(listUseQuery).toHaveBeenCalledWith({
+      limit: 100,
+      meshPrefix: "513375",
+    });
   });
 
-  it("shows only reports in the current regional mesh", () => {
+  it("re-scopes the query when the map moves to another region", () => {
+    render(<PostsPage />);
+    listUseQuery.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
+
+    expect(listUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ meshPrefix: "513375" }),
+    );
+  });
+
+  it("renders every report the server returns without dropping any", () => {
     listUseQuery.mockReturnValueOnce({
       data: [
         {
-          id: "nearby",
+          id: "first",
           meshCode: "5133756531",
           roadCondition: "passable" as const,
           createdAt: new Date().toISOString(),
         },
         {
-          id: "distant",
-          meshCode: "5339461132",
+          id: "second",
+          meshCode: "5133756533",
           roadCondition: "caution" as const,
           createdAt: new Date().toISOString(),
         },
@@ -109,7 +125,7 @@ describe("PostsPage", () => {
         .getByRole("img", { name: "投稿地点の地図" })
         .querySelector("[data-report-count]")
         ?.getAttribute("data-report-count"),
-    ).toBe("1");
+    ).toBe("2");
   });
 
   it("shows the post position preview while the report form is open", () => {
@@ -170,6 +186,38 @@ describe("PostsPage", () => {
       (screen.getByRole("button", { name: "投稿する" }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+
+  it("keeps readable foreground colours on each condition surface", () => {
+    render(<PostsPage />);
+
+    const cta = screen.getByRole("button", {
+      name: "現在地を取得して投稿地点を確認",
+    });
+    // `bg-disabled` は globals.css に無いトークンで、Tailwind は CSS を出さない。
+    // 無効時も有効時と同じブランド色のままだった
+    expect(cta.className).not.toContain("bg-disabled");
+    expect(cta.className).toContain("disabled:bg-muted");
+
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "この道の状況を報告する" }),
+    );
+
+    // 黄色（--caution）に白文字はコントラスト比 2.02:1 で AA を満たさない
+    const cautionSurface = screen
+      .getByRole("radio", { name: "注意が必要" })
+      .closest("div");
+    expect(cautionSurface?.className).toContain("bg-caution");
+    expect(cautionSurface?.className).toContain("text-caution-contrast");
+    expect(cautionSurface?.className).not.toContain("text-white");
+
+    // 濃い面は白文字のままでよい
+    const impassableSurface = screen
+      .getByRole("radio", { name: "通れない" })
+      .closest("div");
+    expect(impassableSurface?.className).toContain("bg-impassable");
+    expect(impassableSurface?.className).toContain("text-white");
   });
 
   it("does not count the current location as a preview and clears the preview after submission", async () => {
