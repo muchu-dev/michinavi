@@ -16,7 +16,6 @@ import {
   toQuarterMeshCode,
 } from "@/lib/location/mesh-code";
 import type { MapReport } from "./map-view";
-import { RoadStatusSummary } from "./road-status-summary";
 
 type LocationStatus = "idle" | "loading" | "success" | "error";
 type RoadCondition = "passable" | "caution" | "impassable";
@@ -203,10 +202,7 @@ export function MapCanvas({
               )}
             >
               <Popup>
-                <ReportGroupDetails
-                  meshCode={group.meshCode}
-                  reports={group.reports}
-                />
+                <ReportGroupDetails reports={group.reports} />
               </Popup>
             </Marker>
           ))}
@@ -314,18 +310,10 @@ function createReportIcon(
   });
 }
 
-function ReportGroupDetails({
-  meshCode,
-  reports,
-}: {
-  meshCode: string;
-  reports: MapReport[];
-}) {
+function ReportGroupDetails({ reports }: { reports: MapReport[] }) {
   return (
     <div className="grid min-w-48 gap-2">
       <strong>{reports.length}件の投稿</strong>
-      {/* 投稿の羅列だけでなく、サーバー側の推定も同じ吹き出しに出す */}
-      <RoadStatusSummary meshCode={meshCode} />
       <ul className="grid divide-y divide-outline">
         {reports.slice(0, 5).map((report) => (
           <li className="grid gap-1.5 py-2 text-sm first:pt-0" key={report.id}>
