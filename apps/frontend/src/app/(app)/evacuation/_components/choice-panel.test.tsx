@@ -187,6 +187,29 @@ describe("ChoicePanel", () => {
     expect(screen.getAllByText("周辺の報告なし")).toHaveLength(4);
   });
 
+  it("does not claim there are no reports when the snapshot cannot be read", () => {
+    // 読めなかったのを「報告なし」と言い切ると、確認できていない状態が
+    // 安全に見える。災害時にここは安心側へ倒したくない
+    latestState = {
+      ...latestState,
+      data: {
+        ...advice(),
+        // input_snapshot は jsonb なので、型の形どおりの値が入っている保証はない。
+        // readRoadSnapshot が unknown を受けているのはそのためで、
+        // ここではその「型どおりでない値」を再現するために型を外している
+        inputSnapshot: { surroundings: "壊れた形" } as unknown as ReturnType<
+          typeof advice
+        >["inputSnapshot"],
+      },
+    };
+    render(<ChoicePanel />);
+
+    expect(screen.queryByText("周辺の報告なし")).toBeNull();
+    expect(
+      screen.getAllByText("周辺の状況を取得できませんでした"),
+    ).toHaveLength(4);
+  });
+
   it("shows switch criteria", () => {
     render(<ChoicePanel />);
 
@@ -215,7 +238,9 @@ describe("ChoicePanel", () => {
       />,
     );
 
-    expect(screen.getByText("徒歩目安 約3分／デモ第一小学校")).toBeTruthy();
+    expect(
+      screen.getByText("直線距離での目安 約3分／デモ第一小学校"),
+    ).toBeTruthy();
     expect(screen.getByText("所要時間未取得／デモ第一小学校")).toBeTruthy();
     expect(screen.getByText("即時／自宅")).toBeTruthy();
     expect(screen.getByText("即時／現在いる建物")).toBeTruthy();

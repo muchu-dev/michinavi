@@ -118,7 +118,10 @@ function OptionIcon({ option }: { option: EvacuationOption }) {
 }
 
 function roadStatusText(road: RoadSnapshot | null) {
-  if (!road || road.reportCount === 0) return "周辺の報告なし";
+  // 「読めなかった」と「報告が無い」は別のこと。読めなかったのに
+  // 「報告なし」と言い切ると、確認できていない状態が安全に見えてしまう
+  if (!road) return "周辺の状況を取得できませんでした";
+  if (road.reportCount === 0) return "周辺の報告なし";
   if (road.impassable > 0) {
     return `周辺に通行不可あり・投稿${road.reportCount}件`;
   }
@@ -136,7 +139,9 @@ function travelTimeText(
     return `約${option.estimatedMinutes}分`;
   }
   if (option.travelMode === "walk" && assignedShelter) {
-    return `徒歩目安 約${Math.max(1, Math.ceil(assignedShelter.distanceM / 80))}分`;
+    // 道のりではなく直線距離を 80m/分で割った概算。実際の道のりは
+    // 直線の 1.3〜1.5 倍になるので、サーバ由来の値と区別が付く書き方にする
+    return `直線距離での目安 約${Math.max(1, Math.ceil(assignedShelter.distanceM / 80))}分`;
   }
   return null;
 }
@@ -154,12 +159,16 @@ function CompactOptionCard({
 }) {
   const recommended = option.rank === 1;
   const travelTime = travelTimeText(option, assignedShelter);
+  // 取得できなかったときと報告が0件のときは、緑（安全）に倒さず中立にする。
+  // 確認できていないことを「大丈夫そう」と読ませない
   const statusTone =
-    roadSnapshot?.impassable && roadSnapshot.impassable > 0
-      ? "bg-impassable"
-      : roadSnapshot?.caution && roadSnapshot.caution > 0
-        ? "bg-caution"
-        : "bg-passable";
+    !roadSnapshot || roadSnapshot.reportCount === 0
+      ? "bg-muted"
+      : roadSnapshot.impassable > 0
+        ? "bg-impassable"
+        : roadSnapshot.caution > 0
+          ? "bg-caution"
+          : "bg-passable";
 
   return (
     <button
@@ -263,6 +272,15 @@ function AdviceOptionDetails({
                 {assignedShelter.isOverCapacity ? "定員超過の可能性あり" : null}
               </span>
             )}
+          </p>
+        )}
+
+      {/* 選択肢の根拠と避難先で基準にしている地点が違う。
+          画面に出さないと、ひとつの根拠から出た結論に見えてしまう */}
+      {option.optionType === "designated_shelter" &&
+        assignedShelter?.shelterName && (
+          <p className="mt-2 text-xs font-bold leading-relaxed text-muted">
+            避難先は地図で選んだ位置、選択肢の根拠は登録した自宅を基準にしています。
           </p>
         )}
 
