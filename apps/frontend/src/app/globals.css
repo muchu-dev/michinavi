@@ -4,14 +4,17 @@
   --background: #f4f6f7;
   --foreground: #1d1b20;
   /* 白文字を載せる面なので、白との比が 4.5:1 を下回らない濃さにする（WCAG 2.1 AA）。
-     #597ebf は 4.07:1 で、12px の白文字（投稿ボタン、ヘッダー）が基準を満たしていなかった */
-  --brand: #4d72b5;
+     #597ebf は 4.07:1 で、12px の白文字（投稿ボタン、ヘッダー）が基準を満たしていなかった。
+     加えて、この色は --app-surface（カード面）の上に文字色としても載る。白の上だけを
+     見て決めると #4d72b5 のようにカード上で 4.37:1 まで落ちるため、白で 5.21:1 /
+     カード面で 4.76:1 になる濃さにしている（FE-19） */
+  --brand: #486cae;
   /* --brand の hover 用。`bg-brand/90` のように半透明で薄めると、下地の白と合成されて
-     #5f80bc（白文字で 3.96:1）まで落ちるため、不透明のまま濃くした専用トークンを持つ。
-     白文字との比は 6.17:1 */
+     基準を割るため、不透明のまま濃くした専用トークンを持つ。白文字との比は 6.17:1 */
   --brand-strong: #41619a;
   --brand-soft: #c7dcff;
-  --muted: #6b7076;
+  /* surface / app-surface / app-canvas のどれに載せても 5:1 を超える濃さ（FE-19） */
+  --muted: #5c636b;
   --outline: #d9dde1;
   --neutral-soft: #d9d9d9;
   --surface: #ffffff;
@@ -26,6 +29,10 @@
   --caution-contrast: #2b1d00;
   --impassable: #c7362a;
   --impassable-soft: var(--color-red-50);
+  /* タップ領域の最小の一辺。src/config/disaster-ui.ts と同じ値（FE-19） */
+  --tap-min: 2.75rem;
+  /* 補助的な文字の最小サイズ。src/config/disaster-ui.ts と同じ値（FE-19） */
+  --font-supporting-min: 0.875rem;
 }
 
 @theme inline {
@@ -61,6 +68,9 @@
 
 html {
   background: var(--app-canvas);
+  /* 端末を横にしたときに、ブラウザが勝手に文字を拡大縮小しないようにする */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -102,6 +112,12 @@ a {
   outline-offset: 3px;
 }
 
+/* 指で押す部品の下限。文字量に関わらずこの大きさを割らない（FE-19） */
+.tap-target {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+}
+
 .nav-icon {
   display: block;
   mask-image: var(--nav-icon);
@@ -110,13 +126,52 @@ a {
   mask-size: contain;
 }
 
+/*
+ * Leaflet が leaflet.css で持ち込む既定値は、災害時の基準（補助 14px 以上 /
+ * タップ領域 44px 以上）を下回る。読み込み順は layout.tsx で leaflet.css →
+ * globals.css なので、ここでまとめて上書きする（FE-19）。
+ * 上書きすべきセレクタの一覧は src/config/disaster-ui.ts が持ち、
+ * disaster-ui.test.tsx がこのファイルの数値を検査する。
+ */
 .leaflet-container {
   background: #e8eeec;
   font-family: inherit;
+  /* 既定 12px。吹き出し本文は em 指定なので、この値に追従して大きくなる */
+  font-size: var(--font-supporting-min);
 }
 
 .leaflet-control-attribution {
-  font-size: 0.625rem;
+  font-size: var(--font-supporting-min);
+}
+
+/* ズーム操作は既定 26px（タッチ端末でも 30px）しかないので指で押せる大きさにする */
+.leaflet-bar a,
+.leaflet-touch .leaflet-bar a {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  line-height: var(--tap-min);
+  font-size: 1.375rem;
+}
+
+/* 吹き出しの閉じるボタンも既定 24px なので広げる */
+.leaflet-container a.leaflet-popup-close-button {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  line-height: var(--tap-min);
+  font-size: 1.25rem;
+}
+
+/* 閉じるボタンを広げた分、吹き出し本文が重ならないよう右側の余白を確保する */
+.leaflet-popup-content {
+  margin-right: var(--tap-min);
+}
+
+/* 端末側でコントラストを上げている人には、さらに強い配色を出す（FE-19） */
+@media (prefers-contrast: more) {
+  :root {
+    --muted: #3f454b;
+    --outline: #9aa1a8;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

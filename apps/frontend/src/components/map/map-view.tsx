@@ -76,7 +76,7 @@ export function MapView({
         showLocationControl={showLocationControl}
       />
       {reports.length > 0 ? (
-        <div className="pointer-events-none absolute bottom-4 left-4 z-[500] flex flex-wrap gap-2 rounded-2xl border border-outline bg-surface/95 px-3 py-2 text-[0.6875rem] font-black text-ink shadow-card backdrop-blur">
+        <div className="pointer-events-none absolute bottom-4 left-4 z-[500] flex flex-wrap gap-x-3 gap-y-2 rounded-2xl border border-outline bg-surface/95 px-3 py-2 text-sm font-black text-ink shadow-card backdrop-blur">
           <span className="flex items-center gap-1.5">
             <span
               aria-hidden="true"
