@@ -31,6 +31,7 @@ export default defineConfig({
         "src/components/onboarding/**/*.tsx",
         "src/components/report/**/*.tsx",
         "src/config/navigation.ts",
+        "src/lib/a11y/**/*.ts",
         "src/lib/auth/**/*.ts",
         "src/lib/auth/development-bypass.ts",
         "src/lib/onboarding/**/*.ts",
