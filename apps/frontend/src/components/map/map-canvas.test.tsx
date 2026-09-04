@@ -51,6 +51,12 @@ vi.mock("react-leaflet", () => ({
       {children}
     </div>
   ),
+  // 経路を描く実装が入ったらこの testid で拾えるようにしておく。
+  // モックに無いままだと queryAllByTestId("map-route") が常に0件になり、
+  // 「経路を描かない」という検証が空振りする
+  Polyline: ({ children }: PropsWithChildren) => (
+    <div data-testid="map-route">{children}</div>
+  ),
   Popup: ({ children }: PropsWithChildren) => <div>{children}</div>,
   TileLayer: ({ attribution, url }: { attribution: string; url: string }) => (
     <div
@@ -134,12 +140,18 @@ describe("MapCanvas", () => {
     );
 
     expect(screen.getAllByTestId("report-marker")).toHaveLength(1);
+    // 追跡を始めていない間は現在地のピンを出さない（"現在地（デモ）" という
+    // 実装に無い文言を queryByText していたため、これまで空振りしていた）
     expect(screen.queryAllByTestId("map-marker")).toHaveLength(0);
-    expect(screen.queryByText("現在地（デモ）")).toBeNull();
+    expect(screen.queryByText("現在地")).toBeNull();
     expect(screen.getByText("2件の投稿")).toBeTruthy();
     expect(screen.getByText("通行不可")).toBeTruthy();
     expect(screen.getByText("注意")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "✓ 確認済み" })).toBeNull();
+    // 確認投票のような未実装の操作を紛れ込ませない。
+    // 地図の上に出るボタンは現在地の追跡だけ
+    expect(
+      screen.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual(["現在地を追跡"]);
   });
 
   it("ignores expired reports and invalid mesh codes", () => {
@@ -258,6 +270,78 @@ describe("MapCanvas", () => {
     view.unmount();
 
     expect(clearWatch).toHaveBeenCalledWith(7);
+  });
+
+  it("releases a watcher that fails after registration", async () => {
+    const clearWatch = vi.fn();
+    let watchId = 0;
+    // オブジェクト越しに持つのは、コールバック内での代入を TypeScript が
+    // 型の絞り込みに使ってしまい、あとから呼べなくなるため
+    const captured: { reportError?: PositionErrorCallback } = {};
+    const watchPosition = vi.fn(
+      (_success: PositionCallback, error: PositionErrorCallback) => {
+        captured.reportError = error;
+        watchId += 1;
+        return watchId;
+      },
+    );
+    vi.stubGlobal("navigator", {
+      geolocation: { watchPosition, clearWatch },
+    });
+
+    render(<MapCanvas />);
+    fireEvent.click(screen.getByRole("button", { name: "現在地を追跡" }));
+    expect(watchPosition).toHaveBeenCalledOnce();
+
+    // 測位できない場所では登録のあとから TIMEOUT が返るが、watchPosition の
+    // 監視自体は止まらない。ID を捨てるだけだと解放されない監視が残る
+    captured.reportError?.({
+      code: 3,
+      PERMISSION_DENIED: 1,
+    } as GeolocationPositionError);
+
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toBe(
+        "現在地を取得できませんでした。もう一度お試しください",
+      );
+    });
+    expect(clearWatch).toHaveBeenCalledWith(1);
+
+    // 解放できていれば、もう一度押したときに監視を張り直せる
+    fireEvent.click(screen.getByRole("button", { name: "現在地を追跡" }));
+    expect(watchPosition).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not start a watcher when the permission query settles after unmount", async () => {
+    const watchPosition = vi.fn(() => 9);
+    const addEventListener = vi.fn();
+    const pending: { resolveQuery?: (status: unknown) => void } = {};
+    vi.stubGlobal("navigator", {
+      geolocation: { watchPosition, clearWatch: vi.fn() },
+      permissions: {
+        query: vi.fn(
+          () =>
+            new Promise((resolve) => {
+              pending.resolveQuery = resolve;
+            }),
+        ),
+      },
+    });
+
+    const view = render(<MapCanvas />);
+    view.unmount();
+
+    pending.resolveQuery?.({
+      state: "granted",
+      addEventListener,
+      removeEventListener: vi.fn(),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // アンマウント後に張った監視と購読は、後片付けが済んでいるので誰も解放できない
+    expect(watchPosition).not.toHaveBeenCalled();
+    expect(addEventListener).not.toHaveBeenCalled();
   });
 
   it("does not request or draw misleading routes to reports", async () => {

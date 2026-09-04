@@ -145,6 +145,7 @@ export function MapCanvas({
     if (!("permissions" in navigator)) return;
 
     // オンボーディングなどですでに許可済みなら、追加操作なしで追跡を始める。
+    let isActive = true;
     let permissionStatus: PermissionStatus | null = null;
     const startWhenGranted = () => {
       if (permissionStatus?.state === "granted") watchCurrentPosition();
@@ -153,6 +154,10 @@ export function MapCanvas({
     navigator.permissions
       .query({ name: "geolocation" })
       .then((status) => {
+        // 解決前にアンマウントされていたら、監視も change の購読も始めない。
+        // 始めてしまうと後片付けはすでに済んでいて、誰も解放できなくなる
+        if (!isActive) return;
+
         permissionStatus = status;
         startWhenGranted();
         status.addEventListener("change", startWhenGranted);
@@ -162,6 +167,7 @@ export function MapCanvas({
       });
 
     return () => {
+      isActive = false;
       permissionStatus?.removeEventListener("change", startWhenGranted);
     };
   }, [watchCurrentPosition]);
