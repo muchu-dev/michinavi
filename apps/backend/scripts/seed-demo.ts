@@ -1,11 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  type DemoSeedConnection,
-  demoCredentials,
-  seedDemoData,
-} from "../src/demo/seed-demo-data.ts";
+import type { DemoSeedConnection } from "../src/demo/seed-demo-data.ts";
 
 /**
  * デモ用データを投入する CLI（BE-26）。
@@ -78,8 +74,30 @@ function connection(): DemoSeedConnection {
     : localSupabaseEnv();
 }
 
+/**
+ * 解決した接続先を環境変数へ写す。
+ *
+ * デモ用データの投入は、推定とまとめの再計算に投稿API と同じ関数
+ * （src/api/routers/road-status.ts / report-digest.ts）を使う。その経路は
+ * 読み込み時に env.backend.ts の検証を通るため、接続先を決めてから
+ * import する必要がある。すでに設定されている値は上書きしない。
+ */
+function exportConnectionToEnv(target: DemoSeedConnection): void {
+  process.env.APP_ENV ??= "local";
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??= target.url;
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??= target.publishableKey;
+  process.env.SUPABASE_SECRET_KEY ??= target.secretKey;
+}
+
 async function main(): Promise<void> {
-  const summary = await seedDemoData(connection());
+  const target = connection();
+  exportConnectionToEnv(target);
+
+  // env を整えてから読み込む（exportConnectionToEnv のコメントを参照）
+  const { demoCredentials, seedDemoData } = await import(
+    "../src/demo/seed-demo-data.ts"
+  );
+  const summary = await seedDemoData(target);
 
   console.log(
     `デモ用データを投入しました: ${summary.households} 世帯 / ${summary.members} 人 / ${summary.reports} 件の投稿 / ${summary.estimatedMeshes} 地点の推定`,

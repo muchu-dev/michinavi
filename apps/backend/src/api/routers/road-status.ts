@@ -7,6 +7,7 @@ import {
   dedupeReports,
   majorityCondition,
 } from "../../reports/aggregate";
+import type { RefreshOptions } from "../../reports/refresh-options";
 import { toTRPCError } from "../errors";
 import type { TRPCContext } from "../init";
 import { createTRPCRouter, publicProcedure } from "../init";
@@ -58,12 +59,17 @@ const DEFAULT_LIST_LIMIT = 500;
 function majorityVoteFallback(
   meshCode: string,
   reports: readonly AggregatableReport[],
+  aiAttempted: boolean,
 ): EstimateResult {
   return {
     meshCode,
     roadCondition: majorityCondition(countByCondition(reports)),
     confidence: "low",
-    reasoning: "AIの推定に失敗したため、報告件数の多数決で算出しました",
+    // 初めから AI を呼ばない経路（デモ用データの投入）では「失敗した」と
+    // 書かない。画面にそのまま出る文なので、起きていないことを書かない
+    reasoning: aiAttempted
+      ? "AIの推定に失敗したため、報告件数の多数決で算出しました"
+      : "報告件数の多数決で算出しました",
   };
 }
 
@@ -105,11 +111,16 @@ ${JSON.stringify(items)}
  *
  * Gemini の呼び出しが失敗しても例外を投げない。呼び出し元（fieldReport.create）の
  * 投稿保存を道連れにしないため、失敗はすべてここで吸収し多数決にフォールバックする。
+ *
+ * 母数はその mesh_code に残っている投稿すべてである。デモ用データの投入も
+ * この関数を通すことで、同じ地点にある通常の投稿を集計から落とさない（BE-26）。
  */
 export async function refreshRoadStatusEstimate(
   supabase: TRPCContext["supabase"],
   meshCode: string,
+  options: RefreshOptions = {},
 ): Promise<void> {
+  const useAi = options.useAi ?? true;
   const since = new Date(
     Date.now() - REPORT_WINDOW_HOURS * 60 * 60 * 1000,
   ).toISOString();
@@ -143,28 +154,30 @@ export async function refreshRoadStatusEstimate(
     return;
   }
 
-  let result = majorityVoteFallback(meshCode, active);
+  let result = majorityVoteFallback(meshCode, active, useAi);
 
-  try {
-    const geminiResult = await generateStructuredJson({
-      prompt: buildPrompt(meshCode, active, Date.now()),
-      responseSchema: GEMINI_RESPONSE_SCHEMA,
-    });
+  if (useAi) {
+    try {
+      const geminiResult = await generateStructuredJson({
+        prompt: buildPrompt(meshCode, active, Date.now()),
+        responseSchema: GEMINI_RESPONSE_SCHEMA,
+      });
 
-    if (geminiResult.ok) {
-      const parsed = estimateResponseSchema.safeParse(
-        JSON.parse(geminiResult.raw),
-      );
-      // 意味の検証: 尋ねた地点以外について答えていたら使わない
-      if (parsed.success && parsed.data.meshCode === meshCode) {
-        result = parsed.data;
+      if (geminiResult.ok) {
+        const parsed = estimateResponseSchema.safeParse(
+          JSON.parse(geminiResult.raw),
+        );
+        // 意味の検証: 尋ねた地点以外について答えていたら使わない
+        if (parsed.success && parsed.data.meshCode === meshCode) {
+          result = parsed.data;
+        }
       }
+    } catch {
+      // JSON.parse の失敗などもすべて多数決の結果をそのまま使う
     }
-  } catch {
-    // JSON.parse の失敗などもすべて多数決の結果をそのまま使う
   }
 
-  const serviceRole = getServiceRoleClient();
+  const serviceRole = options.writer ?? getServiceRoleClient();
   if (!serviceRole) {
     console.warn(
       "[road-status] SUPABASE_SECRET_KEY が未設定のため road_status_estimates を更新できません",

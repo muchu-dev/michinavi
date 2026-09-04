@@ -9,6 +9,7 @@ import {
   majorityCondition,
   type RoadCondition,
 } from "../../reports/aggregate";
+import type { RefreshOptions } from "../../reports/refresh-options";
 import { toTRPCError } from "../errors";
 import type { TRPCContext } from "../init";
 import { createTRPCRouter, publicProcedure } from "../init";
@@ -113,11 +114,17 @@ meshCode は必ず "${facts.meshCode}" のまま返し、他の地点につい�
  *
  * BE-16 と同じく、呼び出し元（fieldReport.create）の投稿保存を道連れにしないため、
  * 失敗はすべてここで吸収する。要約の生成に失敗しても集計結果は保存する。
+ *
+ * 母数はその mesh_code に残っている投稿すべてである。デモ用データの投入も
+ * この関数を通すことで、同じ地点にある通常の投稿を集計から落とさない（BE-26）。
  */
 export async function refreshFieldReportDigest(
   supabase: TRPCContext["supabase"],
   meshCode: string,
+  options: RefreshOptions = {},
 ): Promise<void> {
+  const useAi = options.useAi ?? true;
+
   const { data, error } = await supabase
     .from("field_reports")
     .select("user_id, road_condition, created_at")
@@ -164,29 +171,31 @@ export async function refreshFieldReportDigest(
   let summary = fallbackSummary(facts);
   let isAiSummary = false;
 
-  try {
-    const geminiResult = await generateStructuredJson({
-      prompt: buildPrompt(facts, Date.now()),
-      responseSchema: GEMINI_RESPONSE_SCHEMA,
-    });
+  if (useAi) {
+    try {
+      const geminiResult = await generateStructuredJson({
+        prompt: buildPrompt(facts, Date.now()),
+        responseSchema: GEMINI_RESPONSE_SCHEMA,
+      });
 
-    if (geminiResult.ok) {
-      const parsed = summaryResponseSchema.safeParse(
-        JSON.parse(geminiResult.raw),
-      );
-      // 意味の検証: 尋ねた地点以外について答えていたら使わない。
-      // ここで検証できるのは形式と地点までで、文面の妥当性そのものは
-      // 検証できない（docs/er/07-safety-moderation.md、BE-17）
-      if (parsed.success && parsed.data.meshCode === meshCode) {
-        summary = parsed.data.summary;
-        isAiSummary = true;
+      if (geminiResult.ok) {
+        const parsed = summaryResponseSchema.safeParse(
+          JSON.parse(geminiResult.raw),
+        );
+        // 意味の検証: 尋ねた地点以外について答えていたら使わない。
+        // ここで検証できるのは形式と地点までで、文面の妥当性そのものは
+        // 検証できない（docs/er/07-safety-moderation.md、BE-17）
+        if (parsed.success && parsed.data.meshCode === meshCode) {
+          summary = parsed.data.summary;
+          isAiSummary = true;
+        }
       }
+    } catch {
+      // JSON.parse の失敗などもすべて定型文のまま進める
     }
-  } catch {
-    // JSON.parse の失敗などもすべて定型文のまま進める
   }
 
-  const serviceRole = getServiceRoleClient();
+  const serviceRole = options.writer ?? getServiceRoleClient();
   if (!serviceRole) {
     console.warn(
       "[report-digest] SUPABASE_SECRET_KEY が未設定のため field_report_digests を更新できません",

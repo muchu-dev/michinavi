@@ -1,6 +1,15 @@
-import { createServiceRoleClient, requiredEnv } from "@michinavi/testing";
-import { afterAll, describe, expect, test } from "vitest";
-import { createAnonymousCaller } from "../../api/__tests__/helpers";
+import {
+  createServiceRoleClient,
+  createTestUser,
+  deleteTestUser,
+  requiredEnv,
+  SEED_AREA_IDS,
+} from "@michinavi/testing";
+import { afterAll, describe, expect, test, vi } from "vitest";
+import {
+  createAnonymousCaller,
+  createCallerFor,
+} from "../../api/__tests__/helpers";
 import {
   DEMO_MAP_MESH_PREFIX,
   type DemoSeedConnection,
@@ -8,6 +17,18 @@ import {
   removeDemoData,
   seedDemoData,
 } from "../seed-demo-data";
+
+/**
+ * 通常の投稿（fieldReport.create）は推定の再計算で Gemini を呼ぶ。
+ * テストを外部APIの調子に左右させないため、ここでも呼び出しを差し替える。
+ * デモ用データの投入そのものは元から Gemini を呼ばない。
+ */
+vi.mock("../../ai/gemini-client", () => ({
+  generateStructuredJson: vi.fn(async () => ({
+    ok: false as const,
+    error: "unavailable in test",
+  })),
+}));
 
 const serviceRole = createServiceRoleClient();
 
@@ -213,5 +234,146 @@ describe("seedDemoData（BE-26）", () => {
       .like("display_name", "デモ %");
 
     expect(data).toEqual([]);
+  });
+});
+
+/**
+ * デモの投入・片付けが、同じ地点にある通常の投稿を壊さないこと。
+ *
+ * デモ用の投稿だけから集計を作って mesh_code 単位で上書きすると、同じ地点の
+ * 通常の投稿が推定と要約から消える。片付けで固定のメッシュを無条件に消すと、
+ * 通常の投稿から作られた集計まで巻き込む。どちらも共有の dev / preview 環境で
+ * 実データを壊すため、投入も片付けも「その地点に残っている投稿すべて」から
+ * 数え直す。
+ */
+describe("同じ地点に通常のユーザーの投稿があるとき", () => {
+  /** DEMO_REPORTS が複数の報告を乗せている地点（地図の初期表示位置） */
+  const SHARED_MESH_CODE = "5133756531";
+
+  async function estimateOf(meshCode: string) {
+    const { data } = await serviceRole
+      .from("road_status_estimates")
+      .select("road_condition, report_count")
+      .eq("mesh_code", meshCode)
+      .maybeSingle();
+
+    return data;
+  }
+
+  async function digestOf(meshCode: string) {
+    const { data } = await serviceRole
+      .from("field_report_digests")
+      .select(
+        "road_condition, report_count, reporter_count, passable_count, caution_count, impassable_count, summary, is_ai_summary",
+      )
+      .eq("mesh_code", meshCode)
+      .maybeSingle();
+
+    return data;
+  }
+
+  /**
+   * デモと同じ地点に通常の投稿を 1 件だけ入れ、その状態で本文を走らせる。
+   * 後片付けまで面倒を見るのは、この地点が固定で、投稿が残ると次の実行の
+   * 件数の検証がぶれるためである。
+   */
+  async function withNonDemoReport(
+    body: (context: { userId: string }) => Promise<void>,
+  ): Promise<void> {
+    // 前回の実行が残した投稿があると件数の検証がぶれるので、この地点を空にする
+    await serviceRole
+      .from("field_reports")
+      .delete()
+      .eq("mesh_code", SHARED_MESH_CODE);
+
+    const user = await createTestUser();
+
+    try {
+      const { caller } = await createCallerFor(user);
+      await caller.user.setup({
+        displayName: "テスト太郎",
+        areaId: SEED_AREA_IDS.mabiYata,
+        homeMeshCode: "5133451124",
+      });
+      // 画面と同じ経路で、デモと同じ地点に通常の投稿を 1 件入れる
+      await caller.fieldReport.create({
+        meshCode: SHARED_MESH_CODE,
+        roadCondition: "impassable",
+      });
+
+      await body({ userId: user.id });
+    } finally {
+      // 投稿は user_id が ON DELETE RESTRICT なので、行を落としてから消す
+      await serviceRole.from("field_reports").delete().eq("user_id", user.id);
+      await serviceRole
+        .from("road_status_estimates")
+        .delete()
+        .eq("mesh_code", SHARED_MESH_CODE);
+      await serviceRole
+        .from("field_report_digests")
+        .delete()
+        .eq("mesh_code", SHARED_MESH_CODE);
+      await serviceRole
+        .from("households")
+        .delete()
+        .eq("owner_user_id", user.id);
+      await serviceRole
+        .from("household_members")
+        .delete()
+        .eq("user_id", user.id);
+      await serviceRole.from("users").delete().eq("id", user.id);
+      await deleteTestUser(user.id);
+    }
+  }
+
+  test("投入しても、その投稿が推定と要約から消えない", async () => {
+    await withNonDemoReport(async () => {
+      const summary = await seedDemoData(connection);
+
+      const { count: demoCount } = await serviceRole
+        .from("field_reports")
+        .select("id", { count: "exact", head: true })
+        .eq("mesh_code", SHARED_MESH_CODE)
+        .in("user_id", summary.userIds);
+
+      // デモの投稿がこの地点に乗っていないと、この検査自体が空振りになる
+      expect(demoCount ?? 0).toBeGreaterThan(0);
+
+      // デモの投稿と通常の投稿の両方が母数に入る。
+      // デモ用の投稿だけから集計を作って mesh_code で上書きすると、
+      // ここが demoCount のままになり、通常の投稿が地図から消える
+      const estimate = await estimateOf(SHARED_MESH_CODE);
+      const digest = await digestOf(SHARED_MESH_CODE);
+
+      expect(estimate?.report_count).toBe((demoCount ?? 0) + 1);
+      expect(digest?.report_count).toBe((demoCount ?? 0) + 1);
+      expect(digest?.impassable_count).toBe(1);
+      expect(digest?.summary).toContain("通れない1件");
+    });
+  });
+
+  test("片付けても、その投稿を反映した推定と要約が残る", async () => {
+    await withNonDemoReport(async () => {
+      await seedDemoData(connection);
+      await removeDemoData(connection);
+
+      // デモの投稿だけが消え、通常の投稿から数え直した集計が残る。
+      // 固定のメッシュの行を無条件に消すと、ここが空になる
+      const estimate = await estimateOf(SHARED_MESH_CODE);
+      const digest = await digestOf(SHARED_MESH_CODE);
+
+      expect(estimate).not.toBeNull();
+      expect(estimate?.report_count).toBe(1);
+      expect(estimate?.road_condition).toBe("impassable");
+
+      expect(digest).not.toBeNull();
+      expect(digest?.report_count).toBe(1);
+      expect(digest?.reporter_count).toBe(1);
+      expect(digest?.road_condition).toBe("impassable");
+      expect(digest?.impassable_count).toBe(1);
+      expect(digest?.summary).toContain("通れない1件");
+      // デモの投入も片付けも Gemini を呼ばない
+      expect(digest?.is_ai_summary).toBe(false);
+    });
   });
 });
