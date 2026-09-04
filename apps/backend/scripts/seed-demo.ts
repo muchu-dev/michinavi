@@ -82,7 +82,7 @@ async function main(): Promise<void> {
   const summary = await seedDemoData(connection());
 
   console.log(
-    `デモ用データを投入しました: ${summary.households} 世帯 / ${summary.members} 人 / ${summary.reports} 件の投稿`,
+    `デモ用データを投入しました: ${summary.households} 世帯 / ${summary.members} 人 / ${summary.reports} 件の投稿 / ${summary.estimatedMeshes} 地点の推定`,
   );
   console.log("");
   console.log("デモ用のログイン情報（すべて架空のアカウント）:");

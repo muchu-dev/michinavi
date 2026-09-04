@@ -58,6 +58,65 @@ describe("seedDemoData（BE-26）", () => {
     ).toBe(summary.reports);
   });
 
+  test("投稿した地点の推定とまとめが、未ログインの地図から読める", async () => {
+    const summary = await seedDemoData(connection);
+
+    expect(summary.estimatedMeshes).toBeGreaterThan(0);
+
+    const { data: seededMeshes } = await serviceRole
+      .from("field_reports")
+      .select("mesh_code")
+      .in("user_id", summary.userIds);
+    const meshCodes = new Set((seededMeshes ?? []).map((row) => row.mesh_code));
+
+    // 地図の吹き出しは未ログインでこの2つを読む（FE 側の RoadStatusSummary）
+    const { caller } = await createAnonymousCaller();
+    const estimates = await caller.roadStatus.list({ limit: 500 });
+
+    for (const meshCode of meshCodes) {
+      const estimate = estimates.find((row) => row.meshCode === meshCode);
+      const [digest] = await caller.reportDigest.list({
+        limit: 1,
+        meshCodePrefix: meshCode,
+      });
+
+      expect(estimate).toBeDefined();
+      expect(digest).toBeDefined();
+      expect(digest?.reportCount).toBeGreaterThan(0);
+      // Gemini を呼ばずに多数決で埋めているので、AI 由来だと偽らない
+      expect(estimate?.confidence).toBe("low");
+      expect(digest?.isAiSummary).toBe(false);
+      // 見出しの状態は推定とまとめで食い違わない
+      expect(digest?.roadCondition).toBe(estimate?.roadCondition);
+    }
+  });
+
+  test("片付けると推定とまとめも残らない", async () => {
+    const summary = await seedDemoData(connection);
+
+    const { data: seededMeshes } = await serviceRole
+      .from("field_reports")
+      .select("mesh_code")
+      .in("user_id", summary.userIds);
+    const meshCodes = [
+      ...new Set((seededMeshes ?? []).map((row) => row.mesh_code)),
+    ];
+
+    await removeDemoData(connection);
+
+    const { data: estimates } = await serviceRole
+      .from("road_status_estimates")
+      .select("mesh_code")
+      .in("mesh_code", meshCodes);
+    const { data: digests } = await serviceRole
+      .from("field_report_digests")
+      .select("mesh_code")
+      .in("mesh_code", meshCodes);
+
+    expect(estimates).toEqual([]);
+    expect(digests).toEqual([]);
+  });
+
   test("同じ地点に複数の報告が集まる", async () => {
     await seedDemoData(connection);
 

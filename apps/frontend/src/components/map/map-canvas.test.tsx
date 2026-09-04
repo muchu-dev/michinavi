@@ -76,6 +76,14 @@ vi.mock("@/lib/trpc/client", () => ({
   },
 }));
 
+// 推定の表示は tRPC を呼ぶので、地図側のテストでは置き換える。
+// 表示そのものの検証は road-status-summary.test.tsx にある。
+vi.mock("./road-status-summary", () => ({
+  RoadStatusSummary: ({ meshCode }: { meshCode: string }) => (
+    <div data-mesh-code={meshCode} data-testid="road-status-summary" />
+  ),
+}));
+
 import { MapCanvas } from "./map-canvas";
 
 afterEach(() => {
@@ -154,6 +162,25 @@ describe("MapCanvas", () => {
     expect(screen.getByText("通行不可")).toBeTruthy();
     expect(screen.getByText("注意")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "✓ 確認済み" })).toBeNull();
+  });
+
+  it("hands the tapped mesh to the server-side road status estimate", () => {
+    render(
+      <MapCanvas
+        reports={[
+          {
+            id: "report-1",
+            meshCode: "5133756531",
+            roadCondition: "impassable",
+            createdAt: "2026-08-29T00:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByTestId("road-status-summary").getAttribute("data-mesh-code"),
+    ).toBe("5133756531");
   });
 
   it("ignores expired reports and invalid mesh codes", () => {
