@@ -46,6 +46,13 @@ export const contrastPairs = [
     usage: "通行不可のバッジ",
   },
   { foreground: "caution-ink", background: "caution-soft", usage: "警戒の帯" },
+  {
+    // 黄色の面に白文字は 2.02:1 で、地図の吹き出しのバッジが基準を割っていた。
+    // 面の色は地図の凡例と揃える必要があるので、前景側を濃くして合わせる
+    foreground: "caution-contrast",
+    background: "caution",
+    usage: "注意のバッジ",
+  },
   { foreground: "passable", background: "surface", usage: "通行可の文字" },
   { foreground: "impassable", background: "surface", usage: "通行不可の文字" },
 ] as const;

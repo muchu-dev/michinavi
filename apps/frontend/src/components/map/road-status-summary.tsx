@@ -37,10 +37,17 @@ const CONDITION_LABELS: Record<RoadCondition, string> = {
   impassable: "通行不可",
 };
 
-// 色は globals.css のトークンに紐づく utility だけを使い、直書きしない。
+/**
+ * 色は globals.css のトークンに紐づく utility だけを使い、直書きしない。
+ *
+ * caution の黄色（--caution）に白文字を載せるとコントラスト比が 2.02:1 しかなく、
+ * この 12px のバッジは WCAG 2.1 AA（通常の文字で 4.5:1）を大きく下回る。
+ * 面の色は地図の凡例と揃える必要があるので、前景側を --caution-contrast に寄せる
+ * （8.15:1）。投稿画面の状態カードと同じ組み合わせである。
+ */
 const CONDITION_BADGE_CLASSES: Record<RoadCondition, string> = {
   passable: "bg-passable text-white",
-  caution: "bg-caution text-white",
+  caution: "bg-caution text-caution-contrast",
   impassable: "bg-impassable text-white",
 };
 

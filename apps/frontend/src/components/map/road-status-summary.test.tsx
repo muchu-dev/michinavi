@@ -184,6 +184,32 @@ describe("RoadStatusSummary", () => {
     ).toBeTruthy();
   });
 
+  it("「注意」のバッジに白文字を載せない", () => {
+    // 黄色（--caution #f0a92e）に白文字はコントラスト比 2.02:1 で、
+    // 12px のこのバッジは WCAG 2.1 AA（4.5:1）を満たさない。
+    // 面の色は地図の凡例と揃えるため、前景を --caution-contrast（8.15:1）にする
+    roadStatusUseQuery.mockReturnValue(loaded([fallbackEstimate]));
+    reportDigestUseQuery.mockReturnValue(loaded([fallbackDigest]));
+
+    render(<RoadStatusSummary meshCode={MESH_CODE} />);
+
+    const badge = screen.getByText("注意");
+    expect(badge.className).toContain("bg-caution");
+    expect(badge.className).toContain("text-caution-contrast");
+    expect(badge.className).not.toContain("text-white");
+  });
+
+  it("濃い面のバッジは白文字のままでよい", () => {
+    roadStatusUseQuery.mockReturnValue(loaded([aiEstimate]));
+    reportDigestUseQuery.mockReturnValue(loaded([aiDigest]));
+
+    render(<RoadStatusSummary meshCode={MESH_CODE} />);
+
+    const badge = screen.getByText("通行不可");
+    expect(badge.className).toContain("bg-impassable");
+    expect(badge.className).toContain("text-white");
+  });
+
   it("他の地点の推定を混ぜない", () => {
     roadStatusUseQuery.mockReturnValue(
       loaded([{ ...aiEstimate, meshCode: "5133756532" }]),

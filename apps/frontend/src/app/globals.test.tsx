@@ -79,6 +79,28 @@ describe("globals.css の配色", () => {
     ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
+  it("--caution の面に白文字を載せている className がソースに無い", () => {
+    // 地図の吹き出しのバッジ（road-status-summary）が
+    // `bg-caution text-white`（2.02:1）のままだった回帰を防ぐ。
+    // 面の色は地図の凡例と揃えるので、直すのは前景側だけにする
+    const literals = collectSourceFiles(srcDir).flatMap((file) =>
+      classLiterals(readFileSync(file, "utf8")).map((literal) => ({
+        file: path.relative(srcDir, file),
+        literal,
+      })),
+    );
+    const onCaution = literals.filter((entry) =>
+      /bg-caution(?![-\w])/.test(entry.literal),
+    );
+    const offenders = onCaution
+      .filter((entry) => /text-white(?![-\w/])/.test(entry.literal))
+      .map((entry) => `${entry.file}: ${entry.literal}`);
+
+    // 一件も拾えていないと、この検査自体が空振りになる
+    expect(onCaution.length).toBeGreaterThan(0);
+    expect(offenders).toEqual([]);
+  });
+
   it("--caution-soft の上の --caution-ink が AA を満たす", () => {
     expect(
       contrastRatio(token("caution-ink"), token("caution-soft")),
@@ -96,6 +118,17 @@ describe("globals.css の配色", () => {
     ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 });
+
+/**
+ * ソースから className に書かれうる文字列リテラルを取り出す。
+ * `"bg-caution text-white"` のように、同じリテラルへ並べて書かれた
+ * 面の色と前景色の組み合わせを見るために使う。
+ */
+function classLiterals(source: string): string[] {
+  return [...source.matchAll(/(["`])((?:\\.|[^\\])*?)\1/g)].map(
+    (match) => match[2] ?? "",
+  );
+}
 
 /** className に書かれうる色・装飾のユーティリティだけを拾う */
 const UTILITY_PATTERN =
