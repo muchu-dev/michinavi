@@ -1,235 +1,122 @@
 "use client";
 
-import type { AppRouter } from "@michinavi/backend";
-import type { inferRouterOutputs } from "@trpc/server";
+import { useState } from "react";
 import { MapView } from "@/components/map/map-view";
-import { ErrorState } from "@/components/state/error-state";
 import { api } from "@/lib/trpc/client";
+import { ChoicePanel } from "./choice-panel";
 import {
   evacuationDemoLocation,
   nearbyShelterRadiusM,
 } from "./evacuation-demo";
 
-type RouterOutputs = inferRouterOutputs<AppRouter>;
-type NearbyShelter = RouterOutputs["shelter"]["nearby"][number];
-
-type RouteShelter = Pick<NearbyShelter, "id" | "name" | "distanceM"> & {
-  expectedPeople?: number;
-  occupancyRate?: number | null;
+type Location = {
+  latitude: number;
+  longitude: number;
 };
 
-// 徒歩時間の概算に使う歩行速度。
-const walkingMetersPerMinute = 80;
-
-function getWalkingMinutes(distanceM: number) {
-  return Math.max(1, Math.ceil(distanceM / walkingMetersPerMinute));
-}
-
-// 小さい表示でも歩行姿勢を判別できる単純なシルエットを表示する。
-function WalkingIcon() {
-  return (
-    <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-passable/10 text-passable">
-      <svg
-        viewBox="0 0 24 24"
-        className="size-6 fill-current"
-        aria-hidden="true"
-      >
-        <circle cx="12.4" cy="4.3" r="1.6" />
-        <path d="M10.8 6.5 H13.4 V12.8 H10.8 Z" />
-        <path d="m10.8 7-3.2 1.7v4H6.2V8l4.3-2.2Z" />
-        <path d="m13.1 6.6 2.2 2.3 3.4 1.2v1.5l-4.1-1.1-2.7-2.4Z" />
-        <path d="m10.2 11.7-1.7 7.6H6.6l2.2-8.6Z" />
-        <path d="m11.8 12.2 2.8 2.3v4.8h-1.8v-3.9l-2.5-1.9Z" />
-      </svg>
-    </span>
-  );
-}
-
-// DBから取得した避難所を1つの経路候補として表示する。
-function RouteOptionCard({
-  shelter,
-  recommended,
-  recommendationReason,
-}: {
-  shelter: RouteShelter;
-  recommended: boolean;
-  recommendationReason?: string;
-}) {
-  const distanceKm = shelter.distanceM / 1000;
-  const walkingMinutes = getWalkingMinutes(shelter.distanceM);
-
-  return (
-    <article
-      className={`flex items-center gap-3 rounded-2xl border bg-white px-3 py-3 shadow-card ${recommended ? "border-passable" : "border-outline"}`}
-    >
-      <WalkingIcon />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-base font-black text-ink">
-            徒歩で{shelter.name}へ
-          </h3>
-          {recommended && (
-            <span className="rounded-md bg-passable px-2 py-1 text-[0.6875rem] font-black text-white">
-              推奨
-            </span>
-          )}
-        </div>
-        <p className="mt-1 text-xs font-bold text-muted">
-          約{walkingMinutes}分・直線距離約
-          {distanceKm < 10 ? distanceKm.toFixed(1) : Math.round(distanceKm)}km
-        </p>
-        <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-muted">
-          <span aria-hidden="true" className="size-2.5 rounded-full bg-muted" />
-          経路上の投稿情報は未連携
-        </p>
-        {shelter.expectedPeople !== undefined && (
-          <p className="mt-1 text-[0.6875rem] font-bold text-muted">
-            想定避難者 {shelter.expectedPeople}人
-            {shelter.occupancyRate === null ||
-            shelter.occupancyRate === undefined
-              ? "・定員不明"
-              : `・定員の${Math.round(shelter.occupancyRate * 100)}%`}
-          </p>
-        )}
-        {recommended && (
-          <p className="mt-1 text-[0.6875rem] font-bold text-passable">
-            {recommendationReason ?? "デモ位置から直線距離が最短のため推奨"}
-          </p>
-        )}
-      </div>
-    </article>
-  );
-}
-
-// デモ位置から近い避難所を取得し、距離と混雑状況を考慮した3候補を表示する。
+// 地図の下に、BE-19が生成した避難方法と切り替え基準を表示する。
 export function RoutePanel({ isActive = true }: { isActive?: boolean }) {
-  const nearbyQuery = api.shelter.nearby.useQuery({
-    ...evacuationDemoLocation,
-    radiusM: nearbyShelterRadiusM,
-    limit: 3,
-  });
-  const nearbyShelters = nearbyQuery.data ?? [];
-  const loadsQuery = api.shelterAssignment.loads.useQuery(
-    { shelterIds: nearbyShelters.map((shelter) => shelter.id) },
-    { enabled: nearbyShelters.length > 0 },
+  const [mapLocation, setMapLocation] = useState<Location | null>(null);
+  const [locationMode, setLocationMode] = useState<"actual" | "demo" | null>(
+    null,
   );
-  const routeOptions = withShelterLoads(nearbyShelters, loadsQuery.data);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const assignmentMutation = api.shelterAssignment.assign.useMutation();
+
+  const assignShelterFrom = (location: Location) => {
+    assignmentMutation.mutate({
+      ...location,
+      radiusM: nearbyShelterRadiusM,
+      candidateLimit: 10,
+    });
+  };
+
+  const useDemoLocation = () => {
+    setMapLocation(evacuationDemoLocation);
+    setLocationMode("demo");
+    setLocationError(null);
+    assignShelterFrom(evacuationDemoLocation);
+  };
+
+  const useCurrentLocation = () => {
+    if (!("geolocation" in navigator)) {
+      setLocationError("この端末では位置情報を利用できません。");
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setMapLocation({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+        setLocationMode("actual");
+        setIsLocating(false);
+        assignShelterFrom({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+      },
+      () => {
+        setLocationError("現在地を取得できませんでした。");
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  };
 
   return (
     <>
       <div className="relative h-[19rem] shrink-0 overflow-hidden border-b border-outline">
         <MapView
-          currentLocation={evacuationDemoLocation}
+          currentLocation={mapLocation}
           isVisible={isActive}
-          locationLabel="デモ位置（真備町箭田）"
+          locationLabel={
+            locationMode === "demo" ? "デモ位置（真備町箭田）" : undefined
+          }
           showLocationControl={false}
           fillContainer
         />
       </div>
-      <section className="px-3 pb-5 pt-3" aria-labelledby="route-options-title">
-        <div className="mb-2 flex items-center justify-between gap-3 px-1">
-          <div>
-            <h2
-              id="route-options-title"
-              className="text-sm font-black text-ink"
+      <div className="border-b border-outline bg-surface px-3 py-2">
+        <div className="flex justify-end">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={useDemoLocation}
+              disabled={isLocating || assignmentMutation.isPending}
+              className="inline-flex min-h-11 items-center rounded-full border border-brand bg-brand/10 px-3 text-[0.6875rem] font-black text-brand disabled:opacity-60"
             >
-              避難先の選択肢
-            </h2>
-            <p className="mt-0.5 text-[0.625rem] font-bold text-muted">
-              デモ位置：岡山県倉敷市真備町箭田
-            </p>
+              デモ位置
+            </button>
+            <button
+              type="button"
+              onClick={useCurrentLocation}
+              disabled={isLocating || assignmentMutation.isPending}
+              className="inline-flex min-h-11 items-center rounded-full border border-outline bg-surface px-3 text-[0.6875rem] font-black text-muted disabled:opacity-60"
+            >
+              {isLocating ? "現在地取得中" : "現在地"}
+            </button>
           </div>
-          <span className="whitespace-nowrap text-[0.625rem] font-bold text-muted">
-            {nearbyQuery.isLoading ? "--" : routeOptions.length}件
-          </span>
         </div>
-        {loadsQuery.error && (
+        {locationError && (
           <p
             role="alert"
-            className="mb-3 rounded-xl border border-caution bg-caution-soft px-3 py-3 text-center text-xs font-bold text-caution-ink"
+            className="mt-1 text-[0.6875rem] font-bold text-impassable"
           >
-            混雑状況を取得できないため、距離が近い順に表示しています。
+            {locationError}
           </p>
         )}
-        {/* DB通信中・失敗・0件を区別し、候補がない理由を利用者へ示す。 */}
-        {nearbyQuery.error && (
-          <div className="rounded-xl border border-outline bg-white">
-            <ErrorState
-              title="避難先の候補を取得できませんでした"
-              description="通信が不安定か、サーバが混み合っている可能性があります。電波の届く場所でもう一度お試しください。"
-              retryLabel={
-                nearbyQuery.isFetching
-                  ? "読み込んでいます…"
-                  : "もう一度読み込む"
-              }
-              onRetry={() => {
-                void nearbyQuery.refetch();
-              }}
-            />
-          </div>
-        )}
-        {nearbyQuery.isLoading && (
-          <p className="rounded-xl border border-outline bg-white px-3 py-5 text-center text-xs font-bold text-muted">
-            避難所情報を読み込んでいます
-          </p>
-        )}
-        {!nearbyQuery.isLoading &&
-          !nearbyQuery.error &&
-          routeOptions.length === 0 && (
-            <p className="rounded-xl border border-outline bg-white px-3 py-5 text-center text-xs font-bold text-muted">
-              デモ位置の周辺に避難所が見つかりませんでした
-            </p>
-          )}
-        {/* APIの距離順を維持し、最も近い1件だけに推奨表示を付ける。 */}
-        <div className="space-y-2.5">
-          {routeOptions.map((shelter, index) => (
-            <RouteOptionCard
-              key={shelter.id}
-              shelter={shelter}
-              recommended={index === 0}
-              recommendationReason={
-                loadsQuery.data && index === 0
-                  ? "空きのある避難所から、直線距離が近い順に推奨"
-                  : undefined
-              }
-            />
-          ))}
-        </div>
-        <p className="mt-3 flex items-start gap-2 rounded-xl border border-outline bg-white px-3 py-3 text-[0.6875rem] font-bold leading-relaxed text-muted">
-          <span
-            aria-hidden="true"
-            className="grid size-4 shrink-0 place-items-center rounded-full border border-current text-[0.625rem]"
-          >
-            i
-          </span>
-          表示する避難先は直線距離と現在の想定人数をもとにした提案です。混雑状況は変化するため、自治体の避難情報と現地の案内を確認してください。
-        </p>
-      </section>
+      </div>
+      <ChoicePanel
+        isActive={isActive}
+        assignedShelter={assignmentMutation.data}
+        isAssigningShelter={assignmentMutation.isPending}
+        shelterAssignmentError={assignmentMutation.error}
+      />
     </>
   );
-}
-
-function withShelterLoads(
-  shelters: readonly NearbyShelter[],
-  loads: RouterOutputs["shelterAssignment"]["loads"] | undefined,
-): RouteShelter[] {
-  const options = shelters.map((shelter) => {
-    const load = loads?.find((item) => item.shelterId === shelter.id);
-
-    return {
-      id: shelter.id,
-      name: shelter.name,
-      distanceM: shelter.distanceM,
-      expectedPeople: load?.expectedPeople,
-      occupancyRate: load?.occupancyRate,
-    };
-  });
-
-  if (!loads) return options;
-
-  return options.sort((a, b) => {
-    const aFull = a.occupancyRate !== null && (a.occupancyRate ?? 0) >= 1;
-    const bFull = b.occupancyRate !== null && (b.occupancyRate ?? 0) >= 1;
-    return Number(aFull) - Number(bFull) || a.distanceM - b.distanceM;
-  });
 }

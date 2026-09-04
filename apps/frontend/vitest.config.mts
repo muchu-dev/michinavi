@@ -34,6 +34,7 @@ export default defineConfig({
         "src/components/report/**/*.tsx",
         "src/components/state/**/*.tsx",
         "src/config/navigation.ts",
+        "src/lib/a11y/**/*.ts",
         "src/lib/auth/**/*.ts",
         "src/lib/auth/development-bypass.ts",
         "src/lib/network/**/*.ts",

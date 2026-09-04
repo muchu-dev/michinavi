@@ -1,97 +1,124 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// 取得の成否をテストごとに切り替える
-const { nearbyState, refetchNearby } = vi.hoisted(() => ({
-  nearbyState: { error: null as Error | null },
-  refetchNearby: vi.fn(),
-}));
+const assignShelter = vi.fn();
 
-const nearbyShelters = [
-  { id: "1", name: "満員の最寄り避難所", distanceM: 240 },
-  { id: "2", name: "空きのある避難所", distanceM: 680 },
-  { id: "3", name: "第三避難所", distanceM: 1200 },
-].map((shelter) => ({
-  ...shelter,
-  latitude: 34.6383,
-  longitude: 133.6903,
-  acceptances: [],
-}));
-
-vi.mock("@/components/map/map-view", () => ({
-  MapView: () => <section aria-label="地図" />,
-}));
 vi.mock("@/lib/trpc/client", () => ({
   api: {
-    shelter: {
-      nearby: {
-        useQuery: () => ({
-          data: nearbyState.error ? undefined : nearbyShelters,
-          error: nearbyState.error,
-          isLoading: false,
-          isFetching: false,
-          refetch: refetchNearby,
-        }),
-      },
-    },
     shelterAssignment: {
-      loads: {
-        useQuery: () => ({
-          data: [
-            { shelterId: "1", expectedPeople: 100, occupancyRate: 1 },
-            { shelterId: "2", expectedPeople: 40, occupancyRate: 0.4 },
-            { shelterId: "3", expectedPeople: 60, occupancyRate: 0.6 },
-          ],
+      assign: {
+        useMutation: () => ({
+          data: undefined,
           error: null,
+          isPending: false,
+          mutate: assignShelter,
         }),
       },
     },
   },
 }));
 
+vi.mock("@/components/map/map-view", () => ({
+  MapView: ({
+    currentLocation,
+    isVisible,
+    locationLabel,
+  }: {
+    currentLocation: { latitude: number; longitude: number } | null;
+    isVisible: boolean;
+    locationLabel?: string;
+  }) => (
+    <section
+      aria-label="地図"
+      data-visible={isVisible}
+      data-location={
+        currentLocation
+          ? `${currentLocation.latitude},${currentLocation.longitude}`
+          : ""
+      }
+      data-location-label={locationLabel}
+    />
+  ),
+}));
+
+vi.mock("./choice-panel", () => ({
+  ChoicePanel: ({ isActive }: { isActive: boolean }) => (
+    <section aria-label="AIが提案する避難の選択肢" data-active={isActive} />
+  ),
+}));
+
 import { RoutePanel } from "./route-panel";
 
 afterEach(() => {
   cleanup();
-  nearbyState.error = null;
-  refetchNearby.mockClear();
+  vi.unstubAllGlobals();
 });
 
 describe("RoutePanel", () => {
-  it("shows congestion-aware choices without requiring a button click", () => {
+  it("shows BE-19 choices below the existing map", () => {
     render(<RoutePanel />);
 
-    for (const shelter of nearbyShelters)
-      expect(screen.getByText(`徒歩で${shelter.name}へ`)).toBeTruthy();
-    expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.getAllByText("推奨")).toHaveLength(1);
-    expect(screen.getByText("徒歩で空きのある避難所へ")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "地図" })).toBeTruthy();
     expect(
-      screen.getByText("空きのある避難所から、直線距離が近い順に推奨"),
+      screen.getByRole("region", { name: "AIが提案する避難の選択肢" }),
     ).toBeTruthy();
-    expect(screen.getByText(/定員の40%/)).toBeTruthy();
-    expect(screen.getByText("約9分・直線距離約0.7km")).toBeTruthy();
-    expect(screen.queryByText(/0\.7km \/ 空きのある避難所/)).toBeNull();
   });
 
-  it("lets the reader retry when the candidates cannot be loaded", () => {
-    nearbyState.error = new Error("network down");
+  it("passes the active state to both the map and choices", () => {
+    render(<RoutePanel isActive={false} />);
 
-    render(<RoutePanel />);
-
-    expect(screen.getByRole("alert").textContent).toContain(
-      "避難先の候補を取得できませんでした",
+    expect(screen.getByRole("region", { name: "地図" }).dataset.visible).toBe(
+      "false",
     );
-    fireEvent.click(screen.getByRole("button", { name: "もう一度読み込む" }));
-
-    expect(refetchNearby).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("region", { name: "AIが提案する避難の選択肢" }).dataset
+        .active,
+    ).toBe("false");
   });
 
-  it("explains that the proposal and congestion data can change", () => {
+  it("moves the map to the explicit demo location", () => {
     render(<RoutePanel />);
 
+    fireEvent.click(screen.getByRole("button", { name: "デモ位置" }));
+
+    expect(screen.getByRole("region", { name: "地図" }).dataset.location).toBe(
+      "34.6383,133.6903",
+    );
     expect(
-      screen.getByText(/混雑状況は変化するため、自治体の避難情報/),
-    ).toBeTruthy();
+      screen.getByRole("region", { name: "地図" }).dataset.locationLabel,
+    ).toBe("デモ位置（真備町箭田）");
+    expect(screen.queryByText("地図表示：デモ位置")).toBeNull();
+    expect(assignShelter).toHaveBeenCalledWith({
+      latitude: 34.6383,
+      longitude: 133.6903,
+      radiusM: 5000,
+      candidateLimit: 10,
+    });
+  });
+
+  it("moves only the map to the device location", () => {
+    vi.stubGlobal("navigator", {
+      geolocation: {
+        getCurrentPosition: (success: PositionCallback) =>
+          success({
+            coords: { latitude: 35.01, longitude: 135.76 },
+          } as GeolocationPosition),
+      },
+    });
+    render(<RoutePanel />);
+
+    fireEvent.click(screen.getByRole("button", { name: "現在地" }));
+
+    expect(screen.getByRole("region", { name: "地図" }).dataset.location).toBe(
+      "35.01,135.76",
+    );
+    expect(screen.queryByText("地図表示：現在地")).toBeNull();
+    expect(screen.queryByText(/避難方法は登録済みの自宅周辺/)).toBeNull();
+    expect(assignShelter).toHaveBeenCalledWith({
+      latitude: 35.01,
+      longitude: 135.76,
+      radiusM: 5000,
+      candidateLimit: 10,
+    });
   });
 });
