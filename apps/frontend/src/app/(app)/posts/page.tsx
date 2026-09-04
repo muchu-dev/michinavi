@@ -2,9 +2,14 @@
 
 import { type FormEvent, type ReactNode, useState } from "react";
 import { MapView } from "@/components/map/map-view";
+import {
+  type AttachedPhoto,
+  PhotoAttachment,
+} from "@/components/post/photo-attachment";
 import { EmptyState } from "@/components/state/empty-state";
 import { ErrorState } from "@/components/state/error-state";
 import { toQuarterMeshCode } from "@/lib/location/mesh-code";
+import { readImageFile } from "@/lib/media/read-image-file";
 import { api } from "@/lib/trpc/client";
 
 const REPORT_REGION = {
@@ -87,6 +92,11 @@ export default function PostsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [photo, setPhoto] = useState<AttachedPhoto | null>(null);
+  // 保存できた投稿の ID。写真の添付だけが失敗したときに、投稿を作り直さず
+  // 写真だけを送り直すために保つ。ここが空のまま送り直せると、失敗のたびに
+  // 同じ地点の投稿が積み上がり、災害時の地図が重複で埋まる
+  const [savedReportId, setSavedReportId] = useState<string | null>(null);
   // DBから道路投稿を取得し、投稿成功後に同じキャッシュを再取得する。
   const nearbyMeshPrefix = toQuarterMeshCode(
     ...(mapPosition ?? REPORT_REGION.center),
@@ -99,6 +109,8 @@ export default function PostsPage() {
   });
   const apiUtils = api.useUtils();
   const createReport = api.fieldReport.create.useMutation();
+  // 写真はサーバ側で Exif を落としてから保存される（BE-13）
+  const attachPhoto = api.fieldReportPhoto.attach.useMutation();
   const visibleReports = (reportList.data ?? []).flatMap((report) =>
     report.roadCondition
       ? [{ ...report, roadCondition: report.roadCondition }]
@@ -148,13 +160,25 @@ export default function PostsPage() {
     setView("report");
   };
 
-  // 投稿をキャンセルして入力状態を破棄し、地図画面へ戻る関数。
-  const closeReportForm = () => {
+  // 投稿フォームの入力状態をすべて捨てる関数。
+  const clearReportDraft = () => {
     setCondition(null);
     setExpanded(null);
     setHazard(null);
     setDraftPosition(null);
     setPreviewPosition(null);
+    setPhoto(null);
+    setSavedReportId(null);
+  };
+
+  // 投稿をキャンセルして入力状態を破棄し、地図画面へ戻る関数。
+  const closeReportForm = () => {
+    // 投稿だけ保存できて写真が付かなかったときも、投稿自体は残っている。
+    // 黙って地図へ戻すと保存できたのか分からず、同じ投稿を送り直させてしまう
+    if (savedReportId) {
+      setSuccessMessage("投稿しました（写真は添付できませんでした）");
+    }
+    clearReportDraft();
     setSubmitError(null);
     setView("map");
   };
@@ -167,28 +191,48 @@ export default function PostsPage() {
     setIsSubmitting(true);
     setSubmitError(null);
 
-    try {
-      const position = draftPosition ?? (await getCurrentPosition()).coords;
-      // 正確なGPS座標は送らず、約250mのメッシュコードだけを投稿APIへ渡す。
-      const meshCode = toQuarterMeshCode(
-        "latitude" in position ? position.latitude : position[0],
-        "longitude" in position ? position.longitude : position[1],
-      );
-      await createReport.mutateAsync({
-        meshCode,
-        roadCondition: condition,
-      });
-      await apiUtils.fieldReport.list.invalidate();
+    // 一度保存できた投稿は作り直さない。写真の添付だけが失敗したときに
+    // 送り直すたび新しい投稿ができると、同じ地点の重複が地図に積み上がる
+    let reportId = savedReportId;
 
-      setSuccessMessage("投稿しました");
-      setCondition(null);
-      setExpanded(null);
-      setHazard(null);
-      setDraftPosition(null);
-      setPreviewPosition(null);
+    try {
+      if (!reportId) {
+        const position = draftPosition ?? (await getCurrentPosition()).coords;
+        // 正確なGPS座標は送らず、約250mのメッシュコードだけを投稿APIへ渡す。
+        const meshCode = toQuarterMeshCode(
+          "latitude" in position ? position.latitude : position[0],
+          "longitude" in position ? position.longitude : position[1],
+        );
+        const created = await createReport.mutateAsync({
+          meshCode,
+          roadCondition: condition,
+        });
+        reportId = created.id;
+        setSavedReportId(reportId);
+        await apiUtils.fieldReport.list.invalidate();
+      }
+
+      if (photo) {
+        const read = await readImageFile(photo.file);
+
+        if (!read.ok) {
+          // 投稿は保存できている。写真だけを送り直せる状態で止める
+          setSubmitError(`投稿は保存できました。${read.message}`);
+          return;
+        }
+
+        await attachPhoto.mutateAsync({
+          fieldReportId: reportId,
+          contentBase64: read.base64,
+        });
+      }
+
+      setSuccessMessage(photo ? "写真つきで投稿しました" : "投稿しました");
+      clearReportDraft();
       setView("map");
     } catch (error) {
-      setSubmitError(getSubmitErrorMessage(error));
+      const message = getSubmitErrorMessage(error);
+      setSubmitError(reportId ? `投稿は保存できました。${message}` : message);
     } finally {
       setIsSubmitting(false);
     }
@@ -346,55 +390,70 @@ export default function PostsPage() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-3">
-        {/* 通れる・注意が必要・通れないの選択欄。 */}
-        <div
-          className="space-y-2.5"
-          role="radiogroup"
-          aria-label="道路の通行状態"
-        >
-          <ConditionCard
-            condition="passable"
-            label="通れる"
-            selected={condition === "passable"}
-            onClick={() => chooseCondition("passable")}
-          />
+        {savedReportId ? (
+          // 投稿は保存済みなので、状態を選び直す欄は出さない。ここから
+          // 投稿を作り直せると、写真の再送のたびに同じ投稿が増えてしまう
+          <output className="block rounded-xl border-2 border-passable bg-white px-4 py-3 text-xs font-black text-ink">
+            投稿は保存できています。残っているのは写真の添付だけです。
+          </output>
+        ) : (
+          <>
+            {/* 通れる・注意が必要・通れないの選択欄。 */}
+            <div
+              className="space-y-2.5"
+              role="radiogroup"
+              aria-label="道路の通行状態"
+            >
+              <ConditionCard
+                condition="passable"
+                label="通れる"
+                selected={condition === "passable"}
+                onClick={() => chooseCondition("passable")}
+              />
 
-          <ConditionCard
-            condition="caution"
-            label="注意が必要"
-            selected={condition === "caution"}
-            selectedHazard={condition === "caution" ? hazard : null}
-            expanded={expanded === "caution"}
-            onClick={() => chooseCondition("caution")}
-            onToggleExpanded={() => toggleHazardChoices("caution")}
-          >
-            <HazardChoices
-              selected={hazard}
-              color="caution"
-              onSelect={chooseHazard}
-            />
-          </ConditionCard>
+              <ConditionCard
+                condition="caution"
+                label="注意が必要"
+                selected={condition === "caution"}
+                selectedHazard={condition === "caution" ? hazard : null}
+                expanded={expanded === "caution"}
+                onClick={() => chooseCondition("caution")}
+                onToggleExpanded={() => toggleHazardChoices("caution")}
+              >
+                <HazardChoices
+                  selected={hazard}
+                  color="caution"
+                  onSelect={chooseHazard}
+                />
+              </ConditionCard>
 
-          <ConditionCard
-            condition="impassable"
-            label="通れない"
-            selected={condition === "impassable"}
-            selectedHazard={condition === "impassable" ? hazard : null}
-            expanded={expanded === "impassable"}
-            onClick={() => chooseCondition("impassable")}
-            onToggleExpanded={() => toggleHazardChoices("impassable")}
-          >
-            <HazardChoices
-              selected={hazard}
-              color="impassable"
-              onSelect={chooseHazard}
-            />
-          </ConditionCard>
+              <ConditionCard
+                condition="impassable"
+                label="通れない"
+                selected={condition === "impassable"}
+                selectedHazard={condition === "impassable" ? hazard : null}
+                expanded={expanded === "impassable"}
+                onClick={() => chooseCondition("impassable")}
+                onToggleExpanded={() => toggleHazardChoices("impassable")}
+              >
+                <HazardChoices
+                  selected={hazard}
+                  color="impassable"
+                  onSelect={chooseHazard}
+                />
+              </ConditionCard>
+            </div>
+
+            <p className="mt-2 text-[0.6875rem] font-bold text-muted">
+              原因の選択は任意です。現在DBに保存されるのは通行状態と投稿地点のメッシュのみです。
+            </p>
+          </>
+        )}
+
+        {/* 写真の添付欄（任意）。Exif の除去はサーバ側が行う（BE-13）。 */}
+        <div className="mt-3">
+          <PhotoAttachment onChange={setPhoto} disabled={isSubmitting} />
         </div>
-
-        <p className="mt-2 text-[0.6875rem] font-bold text-muted">
-          原因の選択は任意です。現在DBに保存されるのは通行状態と投稿地点のメッシュのみです。
-        </p>
       </div>
 
       {/* 投稿処理とエラー表示をまとめた画面下部の操作欄。 */}
@@ -408,8 +467,21 @@ export default function PostsPage() {
               : "border-brand bg-white text-brand"
           }`}
         >
-          {isSubmitting ? "送信中..." : "投稿する"}
+          {isSubmitting
+            ? "送信中..."
+            : savedReportId
+              ? "写真を送り直す"
+              : "投稿する"}
         </button>
+        {savedReportId ? (
+          <button
+            type="button"
+            onClick={closeReportForm}
+            className="min-h-12 w-full rounded-lg border border-outline bg-white text-xs font-black text-ink"
+          >
+            写真をつけずに完了する
+          </button>
+        ) : null}
         {submitError ? (
           <p
             aria-live="polite"
