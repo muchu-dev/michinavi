@@ -12,12 +12,59 @@ type ReportDialogProps = {
   onClose: () => void;
 };
 
+/** Tab で止まりうる要素。無効化されたものと tabindex="-1" は除く */
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
+/**
+ * ラジオのうち、Tab が飛ばして通り過ぎるもの。
+ *
+ * ブラウザはラジオのグループを 1 つの止まる場所として扱い、選ばれている
+ * ラジオ（どれも選ばれていなければ先頭）にだけ Tab で入る。同じ数え方を
+ * しないと端の判定がずれ、グループの途中から背面へ抜けてしまう。
+ */
+function isSkippedRadio(element: HTMLElement, root: HTMLElement): boolean {
+  if (
+    !(element instanceof HTMLInputElement) ||
+    element.type !== "radio" ||
+    element.name === ""
+  ) {
+    return false;
+  }
+
+  const group = Array.from(
+    root.querySelectorAll<HTMLInputElement>(
+      `input[type="radio"][name="${CSS.escape(element.name)}"]`,
+    ),
+  );
+  const checked = group.find((radio) => radio.checked);
+
+  return (checked ?? group[0]) !== element;
+}
+
+/** ダイアログの中で Tab が止まる場所を、上から順に返す */
+function tabbableWithin(root: HTMLElement): HTMLElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+  ).filter(
+    (element) => element.tabIndex >= 0 && !isSkippedRadio(element, root),
+  );
+}
+
 /**
  * 通報の理由を選んで送るダイアログ（FE-18）。
  *
- * ネイティブの `<dialog>` を使わないのは、災害時に使う端末の幅が広く、
- * `showModal` の挙動差やスクロールの固定まわりで崩れる余地を残さないためである。
- * 代わりに role="dialog" と Escape、背面のクリックを自前で扱う。
+ * ネイティブの `<dialog>` を使わないのは、`showModal` が jsdom に無く、
+ * 閉じ込めが効いていることをテストで確かめられないためである。代わりに
+ * role="dialog" と Escape、背面のクリック、そして Tab の閉じ込めを自前で扱い、
+ * それぞれをキーボード操作のテストで押さえている。
+ * 開いた起点へフォーカスを戻すのは、ダイアログを出し入れする側（ReportButton）。
  */
 export function ReportDialog({
   targetSummary,
@@ -31,6 +78,7 @@ export function ReportDialog({
   const [reason, setReason] = useState<ReportReason>("false_info");
   const [note, setNote] = useState("");
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     firstFieldRef.current?.focus();
@@ -39,8 +87,37 @@ export function ReportDialog({
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        event.preventDefault();
         onClose();
+        return;
       }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const root = dialogRef.current;
+      if (!root) {
+        return;
+      }
+
+      const stops = tabbableWithin(root);
+      const first = stops[0];
+      const last = stops[stops.length - 1];
+      if (!(first && last)) {
+        return;
+      }
+
+      // 背面へ出ようとしたときだけ横取りする。中の移動はブラウザに任せる
+      const active = document.activeElement;
+      const isOutside = !(active instanceof Node) || !root.contains(active);
+      const edge = event.shiftKey ? first : last;
+      if (active !== edge && !isOutside) {
+        return;
+      }
+
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
     }
 
     document.addEventListener("keydown", handleKeyDown);
@@ -58,6 +135,7 @@ export function ReportDialog({
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

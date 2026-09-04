@@ -1,56 +1,109 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { isReported, markReported, submitReport } from "./reported-reports";
+import { describe, expect, it } from "vitest";
+import {
+  describeReportFailure,
+  isAlreadyReportedError,
+  isReported,
+  toContentFlagInput,
+} from "./reported-reports";
 
-const STORAGE_KEY = "michinavi.reported-field-reports.v1";
+/** tRPC のクライアント側エラーは data.code に tRPC のコードを載せて返る */
+function trpcError(code: string) {
+  return Object.assign(new Error(code), { data: { code } });
+}
 
-afterEach(() => {
-  window.localStorage.clear();
+describe("isReported", () => {
+  it("treats a report with no flags loaded yet as not reported", () => {
+    expect(isReported(undefined, "report-1")).toBe(false);
+    expect(isReported([], "report-1")).toBe(false);
+  });
+
+  it("finds the report the user has already flagged", () => {
+    const flags = [
+      { targetType: "field_report", targetId: "report-1" },
+      { targetType: "field_report", targetId: "report-2" },
+    ];
+
+    expect(isReported(flags, "report-2")).toBe(true);
+    expect(isReported(flags, "report-3")).toBe(false);
+  });
+
+  it("does not match a flag on another kind of target", () => {
+    const flags = [{ targetType: "community_post", targetId: "report-1" }];
+
+    expect(isReported(flags, "report-1")).toBe(false);
+  });
 });
 
-describe("reported reports store", () => {
-  it("treats an unknown report as not yet reported", () => {
-    expect(isReported("report-1")).toBe(false);
+describe("toContentFlagInput", () => {
+  it("sends the note as the server's detail field", () => {
+    expect(
+      toContentFlagInput({
+        fieldReportId: "report-1",
+        reason: "privacy",
+        note: "  表札が読める  ",
+      }),
+    ).toEqual({
+      targetType: "field_report",
+      targetId: "report-1",
+      reason: "privacy",
+      detail: "表札が読める",
+    });
   });
 
-  it("remembers a reported id", () => {
-    markReported("report-1");
-
-    expect(isReported("report-1")).toBe(true);
-    expect(isReported("report-2")).toBe(false);
-  });
-
-  it("does not store the same id twice", () => {
-    markReported("report-1");
-    markReported("report-1");
+  it("omits the detail when the note is empty, because the server rejects it", () => {
+    expect(
+      toContentFlagInput({
+        fieldReportId: "report-1",
+        reason: "spam",
+        note: "   ",
+      }).detail,
+    ).toBeUndefined();
 
     expect(
-      JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]"),
-    ).toEqual(["report-1"]);
+      toContentFlagInput({ fieldReportId: "report-1", reason: "spam" }).detail,
+    ).toBeUndefined();
+  });
+});
+
+describe("isAlreadyReportedError", () => {
+  it("recognises the conflict the server returns for a second report", () => {
+    expect(isAlreadyReportedError(trpcError("CONFLICT"))).toBe(true);
   });
 
-  it("ignores a broken stored value instead of throwing", () => {
-    window.localStorage.setItem(STORAGE_KEY, "{not json");
+  it("does not mistake another failure for an existing report", () => {
+    expect(isAlreadyReportedError(trpcError("INTERNAL_SERVER_ERROR"))).toBe(
+      false,
+    );
+    expect(isAlreadyReportedError(new Error("network down"))).toBe(false);
+    expect(isAlreadyReportedError(undefined)).toBe(false);
+  });
+});
 
-    expect(isReported("report-1")).toBe(false);
-
-    markReported("report-1");
-    expect(isReported("report-1")).toBe(true);
+describe("describeReportFailure", () => {
+  it("asks the user to sign in when the report was rejected as unauthorized", () => {
+    expect(describeReportFailure(trpcError("UNAUTHORIZED"))).toContain(
+      "ログイン",
+    );
   });
 
-  it("ignores entries that are not strings", () => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([1, "report-1"]));
-
-    expect(isReported("report-1")).toBe(true);
+  it("explains that the post is gone when the target was not found", () => {
+    expect(describeReportFailure(trpcError("NOT_FOUND"))).toContain(
+      "見つかりませんでした",
+    );
   });
 
-  it("records the report and reports that the server has not received it yet", async () => {
-    const result = await submitReport({
-      fieldReportId: "report-1",
-      reason: "false_info",
-    });
+  it("explains the limit when too many reports were sent", () => {
+    expect(describeReportFailure(trpcError("TOO_MANY_REQUESTS"))).toContain(
+      "上限",
+    );
+  });
 
-    // BE-24 が入るまではサーバへ送る先が無い
-    expect(result.deliveredToServer).toBe(false);
-    expect(isReported("report-1")).toBe(true);
+  it("falls back to a message about the connection for anything else", () => {
+    expect(describeReportFailure(new Error("network down"))).toContain(
+      "通信の状態",
+    );
+    expect(describeReportFailure({ data: { code: 500 } })).toContain(
+      "通信の状態",
+    );
   });
 });

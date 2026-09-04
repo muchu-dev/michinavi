@@ -62,6 +62,20 @@ vi.mock("react-leaflet", () => ({
   useMap: () => mapInstance,
 }));
 
+// ReportButton がぶら下がるので、通報の API を差し替える。
+// 通報そのものの検証は components/report/report-button.test.tsx で行う
+vi.mock("@/lib/trpc/client", () => ({
+  api: {
+    contentFlag: {
+      create: {
+        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+      },
+      mine: { useQuery: () => ({ data: [] }) },
+    },
+    useUtils: () => ({ contentFlag: { mine: { invalidate: vi.fn() } } }),
+  },
+}));
+
 import { MapCanvas } from "./map-canvas";
 
 afterEach(() => {

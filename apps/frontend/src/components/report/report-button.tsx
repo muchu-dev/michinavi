@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReportReason } from "@/lib/report/report-reasons";
-import { isReported, submitReport } from "@/lib/report/reported-reports";
+import {
+  describeReportFailure,
+  isAlreadyReportedError,
+  isReported,
+  toContentFlagInput,
+} from "@/lib/report/reported-reports";
+import { api } from "@/lib/trpc/client";
 import { ReportDialog } from "./report-dialog";
 
 type ReportButtonProps = {
@@ -15,53 +21,84 @@ type ReportButtonProps = {
 /**
  * 投稿からの通報の導線（FE-18、S4）。
  *
- * 通報済みかどうかは端末の記録から読む（BE-24 が入るまでの扱いは
- * lib/report/reported-reports.ts を参照）。初期表示はサーバとクライアントで
- * 揃える必要があるため、記録の読み出しはマウント後に行う。
+ * 通報は `contentFlag.create` で運営へ送り（BE-24）、通報済みかどうかは
+ * `contentFlag.mine` の応答から決める。送信できなかったときに「通報済みです」を
+ * 出してしまうと、届いていない通報を届いたと誤解させるため、
+ * 表示を切り替えるのは mutation が成功したときだけにしている。
  */
 export function ReportButton({
   fieldReportId,
   targetSummary,
 }: ReportButtonProps) {
-  const [reported, setReported] = useState(false);
+  const myFlags = api.contentFlag.mine.useQuery(undefined, {
+    // 未ログインなら UNAUTHORIZED が返る。何度も叩き直しても結果は変わらない
+    retry: false,
+  });
+  const apiUtils = api.useUtils();
+  const createFlag = api.contentFlag.create.useMutation();
+
   const [isOpen, setIsOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [justSubmitted, setJustSubmitted] = useState(false);
 
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const wasOpenRef = useRef(false);
+
+  /**
+   * 送信できた直後は、mine の取り直しを待たずに「通報済み」を出す。
+   * 取り直しに失敗しても、届いた通報が未通報に見えることはない。
+   */
+  const reported = justSubmitted || isReported(myFlags.data, fieldReportId);
+
+  /** ダイアログを閉じたら、開いた起点へフォーカスを戻す（通報済みなら、その知らせへ） */
   useEffect(() => {
-    setReported(isReported(fieldReportId));
-  }, [fieldReportId]);
+    if (isOpen) {
+      wasOpenRef.current = true;
+      return;
+    }
+
+    if (!wasOpenRef.current) {
+      return;
+    }
+
+    wasOpenRef.current = false;
+    (triggerRef.current ?? statusRef.current)?.focus();
+  }, [isOpen]);
 
   async function handleSubmit(input: { reason: ReportReason; note: string }) {
-    setIsSubmitting(true);
     setErrorMessage(null);
 
     try {
-      await submitReport({
-        fieldReportId,
-        reason: input.reason,
-        note: input.note === "" ? undefined : input.note,
-      });
-
-      setReported(true);
-      setJustSubmitted(true);
-      setIsOpen(false);
-    } catch {
-      setErrorMessage(
-        "通報を送れませんでした。通信の状態を確かめて、もう一度お試しください。",
+      await createFlag.mutateAsync(
+        toContentFlagInput({
+          fieldReportId,
+          reason: input.reason,
+          note: input.note,
+        }),
       );
-    } finally {
-      setIsSubmitting(false);
+    } catch (error) {
+      // すでに自分が通報している対象は、送り直せないだけで運営には届いている
+      if (!isAlreadyReportedError(error)) {
+        setErrorMessage(describeReportFailure(error));
+        return;
+      }
     }
+
+    setJustSubmitted(true);
+    setIsOpen(false);
+    // 画面を離れて戻ってきても通報済みのままにするため、サーバの記録を取り直す
+    await apiUtils.contentFlag.mine.invalidate();
   }
 
   if (reported) {
     return (
       <p
+        ref={statusRef}
         // 送信直後だけ読み上げる。再訪時の「通報済み」は割り込ませない
         aria-live={justSubmitted ? "polite" : "off"}
-        className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-outline bg-app-surface px-4 text-sm font-black text-muted"
+        tabIndex={-1}
+        className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-outline bg-app-surface px-4 text-sm font-black text-muted focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
         {/* 色だけに頼らず、記号と文字の両方で通報済みを示す */}
         <span aria-hidden="true">✓</span>
@@ -73,6 +110,7 @@ export function ReportButton({
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen(true)}
         className="min-h-11 w-full rounded-2xl border border-outline bg-surface px-4 text-sm font-black text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand"
@@ -82,7 +120,7 @@ export function ReportButton({
       {isOpen ? (
         <ReportDialog
           targetSummary={targetSummary}
-          isSubmitting={isSubmitting}
+          isSubmitting={createFlag.isPending}
           errorMessage={errorMessage}
           onSubmit={handleSubmit}
           onClose={() => {
