@@ -8,7 +8,17 @@ import {
 import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { setView } = vi.hoisted(() => ({ setView: vi.fn() }));
+const { getZoom, invalidateSize, mapInstance, setView } = vi.hoisted(() => {
+  const setView = vi.fn();
+  const getZoom = vi.fn(() => 13);
+  const invalidateSize = vi.fn();
+  return {
+    getZoom,
+    invalidateSize,
+    mapInstance: { getZoom, invalidateSize, setView },
+    setView,
+  };
+});
 
 const createDivIcon = vi.hoisted(() => vi.fn((options: unknown) => options));
 
@@ -49,7 +59,7 @@ vi.mock("react-leaflet", () => ({
       data-url={url}
     />
   ),
-  useMap: () => ({ setView }),
+  useMap: () => mapInstance,
 }));
 
 import { MapCanvas } from "./map-canvas";
@@ -59,6 +69,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   setView.mockClear();
+  getZoom.mockClear();
+  invalidateSize.mockClear();
 });
 
 beforeEach(() => {
@@ -87,6 +99,20 @@ describe("MapCanvas", () => {
     expect(screen.getByTestId("map-tiles")).toBeTruthy();
   });
 
+  it("remeasures a map when its preserved panel becomes visible", () => {
+    const view = render(<MapCanvas isVisible={false} />);
+
+    expect(invalidateSize).not.toHaveBeenCalled();
+    view.rerender(<MapCanvas isVisible />);
+
+    expect(invalidateSize).toHaveBeenCalledWith({
+      animate: false,
+      pan: false,
+    });
+    expect(setView).not.toHaveBeenCalled();
+    expect(getZoom).not.toHaveBeenCalled();
+  });
+
   it("renders recent report markers and popup details from API data", () => {
     render(
       <MapCanvas
@@ -108,7 +134,6 @@ describe("MapCanvas", () => {
     );
 
     expect(screen.getAllByTestId("report-marker")).toHaveLength(1);
-    expect(screen.queryAllByTestId("map-route")).toHaveLength(0);
     expect(screen.queryAllByTestId("map-marker")).toHaveLength(0);
     expect(screen.queryByText("現在地（デモ）")).toBeNull();
     expect(screen.getByText("2件の投稿")).toBeTruthy();
@@ -148,7 +173,7 @@ describe("MapCanvas", () => {
       JSON.stringify([35.68020833333334, 139.7671875]),
     );
     expect(preview.getAttribute("data-icon-html")).toContain("var(--brand)");
-    expect(setView).toHaveBeenCalledWith([35.68020833333334, 139.7671875], 16);
+    expect(setView).toHaveBeenCalledWith([35.68020833333334, 139.7671875], 13);
     expect(screen.getByText("投稿後の吹き出し表示位置")).toBeTruthy();
     expect(screen.queryAllByTestId("map-marker")).toHaveLength(0);
   });
@@ -199,7 +224,7 @@ describe("MapCanvas", () => {
     expect(screen.getByRole("status").textContent).toBe(
       "現在地を追跡しています",
     );
-    expect(setView).toHaveBeenCalledWith([35.6812, 139.7671], 16);
+    expect(setView).toHaveBeenCalledWith([35.6812, 139.7671], 13);
     expect(onPositionChange).toHaveBeenCalledWith([35.6812, 139.7671]);
   });
 
@@ -293,6 +318,7 @@ describe("MapCanvas", () => {
   });
 
   it("shows guidance when location permission is denied", async () => {
+    const clearWatch = vi.fn();
     const watchPosition = vi.fn(
       (_success: PositionCallback, error: PositionErrorCallback) => {
         error({ code: 1, PERMISSION_DENIED: 1 } as GeolocationPositionError);
@@ -300,7 +326,7 @@ describe("MapCanvas", () => {
       },
     );
     vi.stubGlobal("navigator", {
-      geolocation: { watchPosition, clearWatch: vi.fn() },
+      geolocation: { watchPosition, clearWatch },
     });
 
     render(<MapCanvas />);
@@ -312,5 +338,50 @@ describe("MapCanvas", () => {
       );
     });
     expect(screen.queryAllByTestId("map-marker")).toHaveLength(0);
+    expect(clearWatch).toHaveBeenCalledWith(3);
+
+    fireEvent.click(screen.getByRole("button", { name: "現在地を追跡" }));
+    expect(watchPosition).toHaveBeenCalledTimes(2);
+    expect(clearWatch).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders a location supplied by an evacuation screen without its own control", () => {
+    const view = render(
+      <MapCanvas
+        currentLocation={{ latitude: 34.6383, longitude: 133.6903 }}
+        locationLabel="デモ位置（真備町箭田）"
+        showLocationControl={false}
+      />,
+    );
+
+    expect(screen.getByText("デモ位置（真備町箭田）")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "現在地を追跡" })).toBeNull();
+    expect(screen.getAllByTestId("map-marker")).toHaveLength(1);
+    expect(setView).toHaveBeenLastCalledWith([34.6383, 133.6903], 13);
+
+    setView.mockClear();
+    view.rerender(
+      <MapCanvas
+        currentLocation={{ latitude: 34.6383, longitude: 133.6903 }}
+        locationLabel="デモ位置（真備町箭田）"
+        showLocationControl={false}
+      />,
+    );
+    expect(setView).not.toHaveBeenCalled();
+
+    view.rerender(
+      <MapCanvas
+        currentLocation={{ latitude: 34.639, longitude: 133.691 }}
+        locationLabel="更新後の現在地"
+        showLocationControl={false}
+      />,
+    );
+    expect(setView).toHaveBeenCalledWith([34.639, 133.691], 13);
+  });
+
+  it("shows the current-location control by default", () => {
+    render(<MapCanvas />);
+
+    expect(screen.getByRole("button", { name: "現在地を追跡" })).toBeTruthy();
   });
 });

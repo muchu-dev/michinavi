@@ -75,24 +75,40 @@ afterEach(() => {
 });
 
 describe("PostsPage", () => {
-  it("keeps the existing report list API contract", () => {
+  it("asks the server to scope the report list to the current regional mesh", () => {
     render(<PostsPage />);
 
-    expect(listUseQuery).toHaveBeenCalledWith({ limit: 100 });
+    // 絞り込みは DB 側で行う。取得した 100 件を画面で捨てる作りだと、
+    // 他の地域の投稿が増えたときに自分の地域が窓から押し出されて空になる
+    expect(listUseQuery).toHaveBeenCalledWith({
+      limit: 100,
+      meshPrefix: "513375",
+    });
   });
 
-  it("shows only reports in the current regional mesh", () => {
+  it("re-scopes the query when the map moves to another region", () => {
+    render(<PostsPage />);
+    listUseQuery.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
+
+    expect(listUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ meshPrefix: "513375" }),
+    );
+  });
+
+  it("renders every report the server returns without dropping any", () => {
     listUseQuery.mockReturnValueOnce({
       data: [
         {
-          id: "nearby",
+          id: "first",
           meshCode: "5133756531",
           roadCondition: "passable" as const,
           createdAt: new Date().toISOString(),
         },
         {
-          id: "distant",
-          meshCode: "5339461132",
+          id: "second",
+          meshCode: "5133756533",
           roadCondition: "caution" as const,
           createdAt: new Date().toISOString(),
         },
@@ -109,7 +125,7 @@ describe("PostsPage", () => {
         .getByRole("img", { name: "投稿地点の地図" })
         .querySelector("[data-report-count]")
         ?.getAttribute("data-report-count"),
-    ).toBe("1");
+    ).toBe("2");
   });
 
   it("shows the post position preview while the report form is open", () => {

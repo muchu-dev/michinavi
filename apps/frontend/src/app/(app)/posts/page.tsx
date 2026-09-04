@@ -89,11 +89,16 @@ export default function PostsPage() {
   const nearbyMeshPrefix = toQuarterMeshCode(
     ...(mapPosition ?? REPORT_REGION.center),
   ).slice(0, 6);
-  const reportList = api.fieldReport.list.useQuery({ limit: 100 });
+  // 地域の絞り込みは DB 側で行う。取得した 100 件を画面で捨てる作りだと、
+  // 他の地域の投稿が増えたときに自分の地域が窓から押し出されて地図が空になる
+  const reportList = api.fieldReport.list.useQuery({
+    limit: 100,
+    meshPrefix: nearbyMeshPrefix,
+  });
   const apiUtils = api.useUtils();
   const createReport = api.fieldReport.create.useMutation();
   const visibleReports = (reportList.data ?? []).flatMap((report) =>
-    report.roadCondition && report.meshCode.startsWith(nearbyMeshPrefix)
+    report.roadCondition
       ? [{ ...report, roadCondition: report.roadCondition }]
       : [],
   );
