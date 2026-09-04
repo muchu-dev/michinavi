@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               地域防災ナビゲーション
             </p>
           </div>
-          <span className="rounded-full border border-white/35 bg-white/12 px-3 py-1 text-xs font-bold">
+          <span className="rounded-full border border-current px-3 py-1 text-xs font-bold">
             デモ
           </span>
         </header>

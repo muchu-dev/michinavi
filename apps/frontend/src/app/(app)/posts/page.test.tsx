@@ -310,6 +310,38 @@ describe("PostsPage", () => {
     ).toBe(false);
   });
 
+  it("keeps readable foreground colours on each condition surface", () => {
+    render(<PostsPage />);
+
+    const cta = screen.getByRole("button", {
+      name: "現在地を取得して投稿地点を確認",
+    });
+    // `bg-disabled` は globals.css に無いトークンで、Tailwind は CSS を出さない。
+    // 無効時も有効時と同じブランド色のままだった
+    expect(cta.className).not.toContain("bg-disabled");
+    expect(cta.className).toContain("disabled:bg-muted");
+
+    fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "この道の状況を報告する" }),
+    );
+
+    // 黄色（--caution）に白文字はコントラスト比 2.02:1 で AA を満たさない
+    const cautionSurface = screen
+      .getByRole("radio", { name: "注意が必要" })
+      .closest("div");
+    expect(cautionSurface?.className).toContain("bg-caution");
+    expect(cautionSurface?.className).toContain("text-caution-contrast");
+    expect(cautionSurface?.className).not.toContain("text-white");
+
+    // 濃い面は白文字のままでよい
+    const impassableSurface = screen
+      .getByRole("radio", { name: "通れない" })
+      .closest("div");
+    expect(impassableSurface?.className).toContain("bg-impassable");
+    expect(impassableSurface?.className).toContain("text-white");
+  });
+
   it("does not count the current location as a preview and clears the preview after submission", async () => {
     listUseQuery.mockReturnValue({
       data: [
