@@ -18,6 +18,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json-summary"],
       include: [
+        "src/app/(app)/demo/page.tsx",
         "src/app/(app)/error.tsx",
         "src/app/(app)/loading.tsx",
         "src/app/auth/confirm/route.ts",
