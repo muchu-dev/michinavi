@@ -30,6 +30,43 @@ const hazards: ReadonlyArray<{ type: HazardType; label: string }> = [
   { type: "other", label: "その他" },
 ];
 
+/**
+ * 通行状態ごとの面の色と、その上に置ける前景色の組。
+ *
+ * caution の黄色（#f0a92e）に白文字を載せると WCAG 2.1 のコントラスト比が
+ * 2.02:1 しかなく、16px の「注意が必要」は AA（4.5:1）を大きく下回る。
+ * 面の色を変えると地図の凡例と食い違うため、前景側を濃い色に寄せて揃える。
+ * Tailwind はソース中の文字列をそのまま探すので、クラス名は組み立てずに書き下す。
+ */
+const CONDITION_SURFACES: Record<
+  RoadCondition,
+  {
+    surface: string;
+    onSurface: string;
+    labelOutline: string;
+    buttonOutline: string;
+  }
+> = {
+  passable: {
+    surface: "border-passable bg-passable",
+    onSurface: "text-white",
+    labelOutline: "has-focus-visible:outline-white",
+    buttonOutline: "focus-visible:outline-white",
+  },
+  caution: {
+    surface: "border-caution bg-caution",
+    onSurface: "text-caution-contrast",
+    labelOutline: "has-focus-visible:outline-caution-contrast",
+    buttonOutline: "focus-visible:outline-caution-contrast",
+  },
+  impassable: {
+    surface: "border-impassable bg-impassable",
+    onSurface: "text-white",
+    labelOutline: "has-focus-visible:outline-white",
+    buttonOutline: "focus-visible:outline-white",
+  },
+};
+
 // ページ：投稿地図と道路状況入力を切り替えて表示できる
 export default function PostsPage() {
   const [view, setView] = useState<"map" | "report">("map");
@@ -220,7 +257,7 @@ export default function PostsPage() {
             type="button"
             onClick={openReportForm}
             disabled={!mapPosition}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-xs font-black text-white shadow-card disabled:cursor-not-allowed disabled:bg-disabled"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-xs font-black text-white shadow-card disabled:cursor-not-allowed disabled:bg-muted"
           >
             <PinIcon />
             {mapPosition
@@ -420,22 +457,20 @@ function ConditionCard({
   onToggleExpanded?: () => void;
   children?: ReactNode;
 }) {
-  const colorClass =
-    condition === "passable"
-      ? "border-passable bg-passable"
-      : condition === "caution"
-        ? "border-caution bg-caution"
-        : "border-impassable bg-impassable";
+  const { surface, onSurface, labelOutline, buttonOutline } =
+    CONDITION_SURFACES[condition];
   return (
     <section
       className={`overflow-hidden rounded-xl border-2 bg-white transition-[box-shadow] ${
         selected ? "ring-4 ring-ink/20" : ""
-      } ${expanded ? colorClass : "border-transparent"}`}
+      } ${expanded ? surface : "border-transparent"}`}
     >
       <div
-        className={`flex min-h-[4.5rem] items-center text-white ${colorClass}`}
+        className={`flex min-h-[4.5rem] items-center ${onSurface} ${surface}`}
       >
-        <label className="flex min-h-[4.5rem] min-w-0 flex-1 cursor-pointer items-center gap-5 px-5 has-focus-visible:outline-2 has-focus-visible:outline-offset-[-4px] has-focus-visible:outline-white">
+        <label
+          className={`flex min-h-[4.5rem] min-w-0 flex-1 cursor-pointer items-center gap-5 px-5 has-focus-visible:outline-2 has-focus-visible:outline-offset-[-4px] ${labelOutline}`}
+        >
           <input
             type="radio"
             name="road-condition"
@@ -471,7 +506,7 @@ function ConditionCard({
             aria-expanded={expanded}
             aria-label={`${label}の原因一覧を${expanded ? "閉じる" : "開く"}`}
             onClick={onToggleExpanded}
-            className="grid min-h-[4.5rem] w-12 shrink-0 place-items-center focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white"
+            className={`grid min-h-[4.5rem] w-12 shrink-0 place-items-center focus-visible:outline-2 focus-visible:outline-offset-[-4px] ${buttonOutline}`}
           >
             <svg
               viewBox="0 0 24 24"
