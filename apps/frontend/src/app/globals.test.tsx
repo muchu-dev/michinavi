@@ -169,3 +169,175 @@ describe("Tailwind のユーティリティ", () => {
     expect(missing).toEqual([]);
   });
 });
+
+/**
+ * 半透明ユーティリティ（`text-white/80`、`hover:bg-brand/90` など）を
+ * 下地に合成して、実際に画面へ出る色を求める。
+ * 不透明なトークン同士だけを測っていると、半透明で薄まった結果 AA を割る状態を
+ * 見逃してしまうため、利用箇所の重ね順どおりに合成してから比を取る。
+ */
+function blend(foreground: string, alpha: number, background: string): string {
+  const channel = (hex: string, offset: number) =>
+    Number.parseInt(hex.replace("#", "").slice(offset, offset + 2), 16);
+
+  return `#${[0, 2, 4]
+    .map((offset) =>
+      Math.round(
+        alpha * channel(foreground, offset) +
+          (1 - alpha) * channel(background, offset),
+      )
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+type Layer = {
+  /** 実際に className に書かれているユーティリティ */
+  readonly utility: string;
+  readonly color: string;
+  /** `/90` のような不透明度。付いていなければ 1 */
+  readonly alpha: number;
+};
+
+/** 下地の上に層を順に重ねて、一番上に見える色を返す */
+function flatten(base: string, layers: readonly Layer[]): string {
+  return layers.reduce(
+    (under, layer) => blend(layer.color, layer.alpha, under),
+    base,
+  );
+}
+
+function readSource(relative: string): string {
+  return readFileSync(path.join(srcDir, relative), "utf8");
+}
+
+/**
+ * 白文字を載せている面を、利用箇所・状態ごとに並べたもの。
+ * 「その className が本当に書かれているか」と「合成後の比が AA を満たすか」を
+ * 両方見るので、半透明クラスへ戻すと落ちる。
+ */
+const COMPOSED_CASES = [
+  {
+    label: "ヘッダーと「デモ」バッジ（app-shell）",
+    file: "components/app-shell/app-shell.tsx",
+    base: token("surface"),
+    background: [{ utility: "bg-brand", color: token("brand"), alpha: 1 }],
+    foreground: { utility: "text-white", color: WHITE, alpha: 1 },
+    others: ["text-current", "border-current"],
+  },
+  {
+    label: "初回設定の主要ボタン・通常時（onboarding）",
+    file: "components/onboarding/onboarding-flow.tsx",
+    base: token("surface"),
+    background: [{ utility: "bg-brand", color: token("brand"), alpha: 1 }],
+    foreground: { utility: "text-white", color: WHITE, alpha: 1 },
+    others: [],
+  },
+  {
+    label: "初回設定の主要ボタン・hover 時（onboarding）",
+    file: "components/onboarding/onboarding-flow.tsx",
+    base: token("surface"),
+    background: [
+      {
+        utility: "hover:bg-brand-strong",
+        color: token("brand-strong"),
+        alpha: 1,
+      },
+    ],
+    foreground: { utility: "text-white", color: WHITE, alpha: 1 },
+    others: [],
+  },
+  {
+    label: "初回設定の主要ボタン・無効時（onboarding）",
+    file: "components/onboarding/onboarding-flow.tsx",
+    base: token("surface"),
+    background: [
+      { utility: "disabled:bg-muted", color: token("muted"), alpha: 1 },
+    ],
+    foreground: { utility: "text-white", color: WHITE, alpha: 1 },
+    others: [],
+  },
+  {
+    label: "ログインボタン・hover 時（半透明だが合成後も足りている例）",
+    file: "components/auth/login-form.tsx",
+    base: token("surface"),
+    background: [
+      {
+        utility: "hover:bg-foreground/90",
+        color: token("foreground"),
+        alpha: 0.9,
+      },
+    ],
+    foreground: { utility: "text-white", color: WHITE, alpha: 1 },
+    others: [],
+  },
+] as const;
+
+describe("半透明を合成したあとの実表示色", () => {
+  it.each(
+    COMPOSED_CASES.map((testCase) => [testCase.label, testCase] as const),
+  )("%s が AA を満たす", (_label, testCase) => {
+    const source = readSource(testCase.file);
+
+    for (const utility of [
+      ...testCase.background.map((layer) => layer.utility),
+      testCase.foreground.utility,
+      ...testCase.others,
+    ]) {
+      expect(source).toContain(utility);
+    }
+
+    const background = flatten(testCase.base, testCase.background);
+    const foreground = blend(
+      testCase.foreground.color,
+      testCase.foreground.alpha,
+      background,
+    );
+
+    expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(
+      AA_NORMAL_TEXT,
+    );
+  });
+
+  it("以前使っていた半透明の組み合わせは、合成すると AA を割る", () => {
+    // app-shell のヘッダー補足文にあった text-white/80 → 実表示 #dbe3f0 で 3.70:1
+    expect(
+      contrastRatio(blend(WHITE, 0.8, token("brand")), token("brand")),
+    ).toBeLessThan(AA_NORMAL_TEXT);
+    // 主要ボタンの hover:bg-brand/90 → 実表示 #5f80bc で 3.96:1
+    expect(
+      contrastRatio(WHITE, blend(token("brand"), 0.9, token("surface"))),
+    ).toBeLessThan(AA_NORMAL_TEXT);
+    // 「デモ」バッジの bg-white/12 → 実表示 #6283be で 3.81:1
+    expect(
+      contrastRatio(WHITE, blend(WHITE, 0.12, token("brand"))),
+    ).toBeLessThan(AA_NORMAL_TEXT);
+  });
+
+  it("その半透明クラスがソースに残っていない", () => {
+    const banned = ["text-white/80", "bg-brand/90", "bg-white/12"];
+    const offenders = collectSourceFiles(srcDir).flatMap((file) => {
+      const source = readFileSync(file, "utf8");
+
+      return banned
+        .filter((utility) => source.includes(utility))
+        .map((utility) => `${path.relative(srcDir, file)}: ${utility}`);
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("文字色そのものには半透明ユーティリティを使わない", () => {
+    const offenders = collectSourceFiles(srcDir).flatMap((file) =>
+      readFileSync(file, "utf8")
+        .split(/[\s"'`{}()]+/)
+        // `hover:text-white/80` のようなバリアント付きは基底だけを見る
+        .map((word) => word.split(":").at(-1) ?? "")
+        .filter((base) => /^text-[a-z-]+\/\d+$/.test(base))
+        .map((base) => `${path.relative(srcDir, file)}: ${base}`),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+});
