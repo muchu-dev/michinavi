@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { OfflineBanner } from "@/components/state/offline-banner";
 import { AppNavigation } from "./app-navigation";
 import { QuickPostAction } from "./quick-post-action";
 
@@ -20,6 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             デモ
           </span>
         </header>
+        <OfflineBanner />
         <main
           id="main-content"
           className="flex min-h-0 flex-1 flex-col bg-app-surface"
