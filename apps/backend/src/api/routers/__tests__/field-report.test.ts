@@ -185,4 +185,61 @@ describe("fieldReport.list", () => {
     const list = await caller.fieldReport.list({ limit: 1 });
     expect(list).toHaveLength(1);
   });
+
+  test("meshPrefix で見ている地域だけを返す", async () => {
+    const user = await newRegisteredUser();
+    const { caller } = await createCallerFor(user);
+
+    const nearby = await caller.fieldReport.create({
+      meshCode: "5133451124",
+      roadCondition: "impassable",
+    });
+    const faraway = await caller.fieldReport.create({
+      meshCode: "5339451124",
+      roadCondition: "passable",
+    });
+
+    const list = await caller.fieldReport.list({
+      limit: 100,
+      meshPrefix: "513345",
+    });
+    const ids = list.map((report) => report.id);
+
+    expect(ids).toContain(nearby.id);
+    expect(ids).not.toContain(faraway.id);
+  });
+
+  test("他の地域の新しい投稿に押し出されない", async () => {
+    const user = await newRegisteredUser();
+    const { caller } = await createCallerFor(user);
+
+    // 見ている地域の投稿を先に置き、そのあと別の地域へ新しい投稿を積む
+    const nearby = await caller.fieldReport.create({
+      meshCode: "5133451124",
+      roadCondition: "impassable",
+    });
+    for (const meshCode of ["5339451124", "5339451125", "5339451126"]) {
+      await caller.fieldReport.create({ meshCode, roadCondition: "passable" });
+    }
+
+    // 絞り込みが DB 側で効いていれば、limit が小さくても地域の投稿は残る。
+    // 画面側で絞る作りだと、ここで別地域の新しい投稿に押し出されて 0 件になる
+    const list = await caller.fieldReport.list({
+      limit: 1,
+      meshPrefix: "513345",
+    });
+
+    expect(list.map((report) => report.id)).toEqual([nearby.id]);
+  });
+
+  test("meshPrefix が数字以外だと弾かれる", async () => {
+    const { caller } = await createAnonymousCaller();
+
+    await expect(
+      caller.fieldReport.list({ limit: 10, meshPrefix: "51%" }),
+    ).rejects.toThrow();
+    await expect(
+      caller.fieldReport.list({ limit: 10, meshPrefix: "51334511240" }),
+    ).rejects.toThrow();
+  });
 });
