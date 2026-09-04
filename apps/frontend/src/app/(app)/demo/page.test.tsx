@@ -73,6 +73,18 @@ describe("DemoWalkthroughPage", () => {
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe("[]");
   });
 
+  it("shows what the presenter must not claim on a screen", () => {
+    render(<DemoWalkthroughPage />);
+
+    const withAvoid = demoScenario.filter((step) => step.avoid !== null);
+
+    expect(withAvoid.length).toBeGreaterThan(0);
+
+    for (const step of withAvoid) {
+      expect(screen.getByText(`今日は触れない：${step.avoid}`)).toBeTruthy();
+    }
+  });
+
   it("shows what to fall back on when a step does not work", () => {
     render(<DemoWalkthroughPage />);
 

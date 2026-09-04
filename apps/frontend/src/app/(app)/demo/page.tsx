@@ -107,6 +107,11 @@ export default function DemoWalkthroughPage() {
               <p className="mt-1 text-sm leading-6 text-muted">
                 必要な準備：{step.requires}
               </p>
+              {step.avoid ? (
+                <p className="mt-2 rounded-2xl bg-app-surface px-3 py-2 text-sm leading-6 font-bold text-ink">
+                  今日は触れない：{step.avoid}
+                </p>
+              ) : null}
               {step.fallback ? (
                 <p className="mt-2 rounded-2xl bg-caution-soft px-3 py-2 text-sm leading-6 font-bold text-caution-ink">
                   詰まったとき：{step.fallback}

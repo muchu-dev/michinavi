@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { demoScenario, demoTimeboxMinutes } from "./demo-scenario";
@@ -9,6 +9,14 @@ function pagePathFor(route: string): string {
 
   return resolve(process.cwd(), `src/app/(app)${segment}/page.tsx`);
 }
+
+/**
+ * 投稿が地図に出ることを見せる手順。
+ *
+ * 投稿を取得して地図へ描くのは、いまは投稿タブだけである。
+ * 投稿を読まない画面へこれらの手順を向けると、発表でその場で詰まる。
+ */
+const stepIdsThatShowPosts = ["map-overview", "post-report", "map-after-post"];
 
 describe("demo scenario (FE-21)", () => {
   it("keeps the steps in an unbroken order", () => {
@@ -28,6 +36,21 @@ describe("demo scenario (FE-21)", () => {
       expect(
         existsSync(pagePathFor(step.route)),
         `${step.id} の行き先 ${step.route} に画面がありません`,
+      ).toBe(true);
+    }
+  });
+
+  it("points the steps about posts at a screen that really loads them", () => {
+    for (const id of stepIdsThatShowPosts) {
+      const step = demoScenario.find((candidate) => candidate.id === id);
+
+      expect(step, `${id} の手順が台本にありません`).toBeDefined();
+
+      const source = readFileSync(pagePathFor(step?.route ?? "/"), "utf8");
+
+      expect(
+        source.includes("fieldReport"),
+        `${id} の行き先 ${step?.route} は投稿を読んでいないため、発表で詰まります`,
       ).toBe(true);
     }
   });
