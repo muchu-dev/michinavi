@@ -10,6 +10,7 @@ import {
   TileLayer,
   useMap,
 } from "react-leaflet";
+import { ReportButton } from "@/components/report/report-button";
 import {
   quarterMeshCodeToCenter,
   toQuarterMeshCode,
@@ -255,12 +256,12 @@ export function MapCanvas({
             type="button"
             onClick={watchCurrentPosition}
             disabled={locationStatus === "loading"}
-            className="rounded-full border border-outline bg-surface px-3 py-2 text-xs font-black text-ink shadow-card disabled:cursor-wait disabled:opacity-70"
+            className="tap-target inline-flex items-center justify-center rounded-full border border-outline bg-surface px-4 py-2 text-sm font-black text-ink shadow-card disabled:cursor-wait disabled:opacity-70"
           >
             {locationStatus === "loading" ? "取得中…" : "現在地を追跡"}
           </button>
           <output
-            className={`rounded-lg bg-surface/95 px-2 py-1 text-right text-[0.625rem] font-bold shadow-card ${
+            className={`rounded-lg bg-surface/95 px-2 py-1 text-right text-sm font-bold shadow-card ${
               locationStatus === "error" ? "text-impassable" : "text-muted"
             }`}
           >
@@ -308,10 +309,10 @@ function createReportIcon(
           : MAP_COLORS.brand;
   return divIcon({
     className: "bg-transparent border-0",
-    html: `<svg aria-label="${ariaLabel}" role="img" viewBox="0 0 64 64" width="52" height="52"><path d="M9 9h39a6 6 0 0 1 6 6v27a6 6 0 0 1-6 6H25L13 58V48H9a6 6 0 0 1-6-6V15a6 6 0 0 1 6-6Z" fill="${MAP_COLORS.surface}" stroke="${color}" stroke-width="3" stroke-linejoin="round"/><path d="M15 22h27M15 30h27M15 38h18" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/><circle cx="51" cy="12" r="11" fill="${color}" stroke="${MAP_COLORS.surface}" stroke-width="2"/><text x="51" y="15.5" fill="${MAP_COLORS.surface}" font-family="system-ui,sans-serif" font-size="10" font-weight="800" text-anchor="middle">${countLabel}</text></svg>`,
-    iconSize: [52, 52],
-    iconAnchor: [13, 50],
-    popupAnchor: [13, -46],
+    html: `<svg aria-label="${ariaLabel}" role="img" viewBox="0 0 64 64" width="64" height="64"><path d="M9 9h39a6 6 0 0 1 6 6v27a6 6 0 0 1-6 6H25L13 58V48H9a6 6 0 0 1-6-6V15a6 6 0 0 1 6-6Z" fill="${MAP_COLORS.surface}" stroke="${color}" stroke-width="3" stroke-linejoin="round"/><path d="M15 22h27M15 30h27M15 38h18" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/><circle cx="49" cy="15" r="14" fill="${color}" stroke="${MAP_COLORS.surface}" stroke-width="2"/><text x="49" y="20" fill="${MAP_COLORS.surface}" font-family="system-ui,sans-serif" font-size="14" font-weight="800" text-anchor="middle">${countLabel}</text></svg>`,
+    iconSize: [64, 64],
+    iconAnchor: [16, 62],
+    popupAnchor: [16, -57],
   });
 }
 
@@ -321,7 +322,7 @@ function ReportGroupDetails({ reports }: { reports: MapReport[] }) {
       <strong>{reports.length}件の投稿</strong>
       <ul className="grid divide-y divide-outline">
         {reports.slice(0, 5).map((report) => (
-          <li className="grid gap-1.5 py-2 text-xs first:pt-0" key={report.id}>
+          <li className="grid gap-1.5 py-2 text-sm first:pt-0" key={report.id}>
             <span className="font-bold">
               {getReportLabel(report.roadCondition)}
             </span>
@@ -333,11 +334,16 @@ function ReportGroupDetails({ reports }: { reports: MapReport[] }) {
                 timeZone: "Asia/Tokyo",
               }).format(new Date(report.createdAt))}
             </time>
+            {/* 通報は、投稿の中身が見えている場所からしか押せないようにする（FE-18） */}
+            <ReportButton
+              fieldReportId={report.id}
+              targetSummary={getReportLabel(report.roadCondition)}
+            />
           </li>
         ))}
       </ul>
       {reports.length > 5 ? (
-        <span className="text-xs text-muted">ほか{reports.length - 5}件</span>
+        <span className="text-sm text-muted">ほか{reports.length - 5}件</span>
       ) : null}
     </div>
   );

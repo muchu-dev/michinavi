@@ -68,6 +68,20 @@ vi.mock("react-leaflet", () => ({
   useMap: () => mapInstance,
 }));
 
+// ReportButton がぶら下がるので、通報の API を差し替える。
+// 通報そのものの検証は components/report/report-button.test.tsx で行う
+vi.mock("@/lib/trpc/client", () => ({
+  api: {
+    contentFlag: {
+      create: {
+        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+      },
+      mine: { useQuery: () => ({ data: [] }) },
+    },
+    useUtils: () => ({ contentFlag: { mine: { invalidate: vi.fn() } } }),
+  },
+}));
+
 import { MapCanvas } from "./map-canvas";
 
 afterEach(() => {
@@ -467,5 +481,63 @@ describe("MapCanvas", () => {
     render(<MapCanvas />);
 
     expect(screen.getByRole("button", { name: "現在地を追跡" })).toBeTruthy();
+  });
+
+  it("keeps the location control usable with gloves and without zooming (FE-19)", () => {
+    render(<MapCanvas />);
+
+    // .tap-target は globals.css で --tap-min（44px）を最小の一辺にする
+    const trackButton = screen.getByRole("button", { name: "現在地を追跡" });
+    expect(trackButton.className).toContain("tap-target");
+    expect(trackButton.className).toContain("text-sm");
+    expect(screen.getByRole("status").className).toContain("text-sm");
+  });
+
+  it("prints the report count on a pin at a readable size (FE-19)", () => {
+    render(
+      <MapCanvas
+        reports={[
+          {
+            id: "report-1",
+            meshCode: "5133756531",
+            roadCondition: "passable",
+            createdAt: "2026-08-29T00:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    // 52px 表示のまま font-size 10 だと実寸 8px になるので、原寸で描く
+    const icon =
+      screen.getByTestId("report-marker").getAttribute("data-icon-html") ?? "";
+    expect(icon).toContain('viewBox="0 0 64 64" width="64" height="64"');
+    expect(icon).toContain('font-size="14"');
+  });
+
+  it("exposes the report entry point on each report in the popup (FE-18)", () => {
+    render(
+      <MapCanvas
+        reports={[
+          {
+            id: "report-1",
+            meshCode: "5133756531",
+            roadCondition: "impassable",
+            createdAt: "2026-08-29T00:00:00.000Z",
+          },
+          {
+            id: "report-2",
+            meshCode: "5133756531",
+            roadCondition: "caution",
+            createdAt: "2026-08-28T23:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    // 通報は、投稿の中身が見えている場所からしか押せないようにしている。
+    // 1 件ごとに導線を出すので、まとまった 2 件ぶんのボタンが並ぶ
+    expect(
+      screen.getAllByRole("button", { name: "この投稿を通報する" }),
+    ).toHaveLength(2);
   });
 });
