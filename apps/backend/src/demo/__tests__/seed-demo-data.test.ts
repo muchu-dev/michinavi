@@ -2,6 +2,7 @@ import { createServiceRoleClient, requiredEnv } from "@michinavi/testing";
 import { afterAll, describe, expect, test } from "vitest";
 import { createAnonymousCaller } from "../../api/__tests__/helpers";
 import {
+  DEMO_MAP_MESH_PREFIX,
   type DemoSeedConnection,
   demoCredentials,
   removeDemoData,
@@ -32,12 +33,24 @@ describe("seedDemoData（BE-26）", () => {
     // 投入した投稿が、未ログインの地図から見えること（デモは未ログインで見せる）
     const { data: seededIds } = await serviceRole
       .from("field_reports")
-      .select("id")
+      .select("id, mesh_code")
       .in("user_id", summary.userIds);
     expect(seededIds).toHaveLength(summary.reports);
 
+    // 投稿はすべて地図の初期表示位置と同じ 2 次メッシュに乗っていること。
+    // ここがずれるとデモを開いた直後の地図が 0 件になる（BE-26 の再発防止）
+    for (const row of seededIds ?? []) {
+      expect(row.mesh_code.startsWith(DEMO_MAP_MESH_PREFIX)).toBe(true);
+    }
+
+    // 画面と同じく meshPrefix で絞って引く。
+    // 絞らずに「新しい順 100 件」を引くと、他のテストが積んだ投稿に
+    // 押し出されて、DB の中身次第で落ちるテストになる
     const { caller } = await createAnonymousCaller();
-    const visible = await caller.fieldReport.list({ limit: 100 });
+    const visible = await caller.fieldReport.list({
+      limit: 100,
+      meshPrefix: DEMO_MAP_MESH_PREFIX,
+    });
     const visibleIds = new Set(visible.map((report) => report.id));
 
     expect(
