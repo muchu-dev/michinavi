@@ -94,14 +94,12 @@ export function PhotoAttachment({ onChange, disabled }: PhotoAttachmentProps) {
           </button>
         </div>
       ) : (
-        <>
-          <label
-            htmlFor={inputId}
-            className="flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-outline bg-surface px-4 text-sm font-black text-ink focus-within:outline-3 focus-within:outline-brand"
-          >
-            <span aria-hidden="true">📷</span>
-            写真を撮る／選ぶ
-          </label>
+        // sr-only の入力は label の中に置く。兄弟に置くと、キーボードで
+        // 入力に focus が当たってもラベル側に可視のフォーカスリングが出ない
+        <label
+          htmlFor={inputId}
+          className="flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-outline bg-surface px-4 text-sm font-black text-ink has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-brand"
+        >
           <input
             id={inputId}
             type="file"
@@ -112,7 +110,9 @@ export function PhotoAttachment({ onChange, disabled }: PhotoAttachmentProps) {
             onChange={(event) => handleSelect(event.target.files?.[0])}
             className="sr-only"
           />
-        </>
+          <span aria-hidden="true">📷</span>
+          写真を撮る／選ぶ
+        </label>
       )}
 
       {errorMessage ? (

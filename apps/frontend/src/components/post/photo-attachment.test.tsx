@@ -41,6 +41,17 @@ describe("PhotoAttachment", () => {
     expect(input.getAttribute("accept")).toBe("image/jpeg,image/png");
   });
 
+  it("キーボードで入力に focus が当たるとラベルにフォーカスリングが出る", () => {
+    render(<PhotoAttachment onChange={() => {}} />);
+
+    const label = photoInput().closest("label");
+
+    // 入力が label の兄弟だと label 側に可視のフォーカスリングが出ない。
+    // 入力を label の中へ入れ、:has() 経由でリングを出す
+    expect(label).toBeTruthy();
+    expect(label?.className).toContain("has-focus-visible:outline-brand");
+  });
+
   it("位置情報がサーバ側で削除されることを伝える", () => {
     render(<PhotoAttachment onChange={() => {}} />);
 

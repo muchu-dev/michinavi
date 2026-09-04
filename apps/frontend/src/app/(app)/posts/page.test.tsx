@@ -5,7 +5,15 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 type ReportListResult = {
   data: Array<{
@@ -19,15 +27,22 @@ type ReportListResult = {
   isPending: boolean;
 };
 
-const { listUseQuery, mutateAsync } = vi.hoisted(() => ({
-  listUseQuery: vi.fn<() => ReportListResult>(() => ({
-    data: [],
-    dataUpdatedAt: Date.now(),
-    isError: false,
-    isPending: false,
-  })),
-  mutateAsync: vi.fn(),
-}));
+type ReadImageResult =
+  | { ok: true; base64: string; mimeType: "image/jpeg" | "image/png" }
+  | { ok: false; message: string };
+
+const { listUseQuery, mutateAsync, attachMutateAsync, readImageFile } =
+  vi.hoisted(() => ({
+    listUseQuery: vi.fn<() => ReportListResult>(() => ({
+      data: [],
+      dataUpdatedAt: Date.now(),
+      isError: false,
+      isPending: false,
+    })),
+    mutateAsync: vi.fn(),
+    attachMutateAsync: vi.fn(),
+    readImageFile: vi.fn<() => Promise<ReadImageResult>>(),
+  }));
 
 vi.mock("@/components/map/map-view", () => ({
   MapView: ({
@@ -54,11 +69,21 @@ vi.mock("@/components/map/map-view", () => ({
   ),
 }));
 
+// 実物の readImageFile は FileReader を使うため、jsdom では成否を作りにくい。
+// 形式と大きさの検証（validatePhotoFile）は実物のまま使う
+vi.mock("@/lib/media/read-image-file", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/media/read-image-file")>()),
+  readImageFile,
+}));
+
 vi.mock("@/lib/trpc/client", () => ({
   api: {
     fieldReport: {
       create: { useMutation: () => ({ mutateAsync }) },
       list: { useQuery: listUseQuery },
+    },
+    fieldReportPhoto: {
+      attach: { useMutation: () => ({ mutateAsync: attachMutateAsync }) },
     },
     useUtils: () => ({
       fieldReport: { list: { invalidate: vi.fn() } },
@@ -68,11 +93,45 @@ vi.mock("@/lib/trpc/client", () => ({
 
 import PostsPage from "./page";
 
+beforeAll(() => {
+  // jsdom には実装が無い
+  URL.createObjectURL = vi.fn(() => "blob:preview");
+  URL.revokeObjectURL = vi.fn();
+});
+
+beforeEach(() => {
+  readImageFile.mockResolvedValue({
+    ok: true,
+    base64: "AAAA",
+    mimeType: "image/jpeg",
+  });
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
+
+/** 投稿地点を確定してから、通行状態を選んだところまで進める */
+function openFormAndChoosePassable() {
+  fireEvent.click(screen.getByRole("button", { name: "テスト現在地を設定" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "この道の状況を報告する" }),
+  );
+  fireEvent.click(screen.getByRole("radio", { name: "通れる" }));
+}
+
+/** 写真を選ぶ。ラベルには記号も入るので部分一致で引く */
+function attachPhotoFile() {
+  const input = screen.getByLabelText(/写真を撮る/, {
+    selector: "input",
+  }) as HTMLInputElement;
+  const file = new File(["x"], "road.jpg", { type: "image/jpeg" });
+
+  Object.defineProperty(file, "size", { value: 1024 });
+  fireEvent.change(input, { target: { files: [file] } });
+}
 
 describe("PostsPage", () => {
   it("asks the server to scope the report list to the current regional mesh", () => {
@@ -272,5 +331,125 @@ describe("PostsPage", () => {
       screen.getByRole("button", { name: "通れないの原因一覧を開く" }),
     );
     expect(screen.getByRole("radio", { name: "冠水" })).toBeTruthy();
+  });
+
+  it("投稿フォームから写真を添えられる", async () => {
+    mutateAsync.mockResolvedValue({ id: "created" });
+    attachMutateAsync.mockResolvedValue({ id: "photo" });
+    render(<PostsPage />);
+
+    openFormAndChoosePassable();
+    attachPhotoFile();
+    fireEvent.click(screen.getByRole("button", { name: "投稿する" }));
+
+    await waitFor(() => {
+      expect(attachMutateAsync).toHaveBeenCalledWith({
+        fieldReportId: "created",
+        contentBase64: "AAAA",
+      });
+    });
+    // 写真まで送れたら地図へ戻る
+    await waitFor(() => {
+      expect(screen.getByText("写真つきで投稿しました")).toBeTruthy();
+    });
+  });
+
+  it("写真の添付に失敗しても、送り直しで投稿を作り直さない", async () => {
+    mutateAsync.mockResolvedValue({ id: "created" });
+    attachMutateAsync.mockRejectedValueOnce(
+      new Error("写真を保存できませんでした"),
+    );
+    attachMutateAsync.mockResolvedValueOnce({ id: "photo" });
+    render(<PostsPage />);
+
+    openFormAndChoosePassable();
+    attachPhotoFile();
+    fireEvent.click(screen.getByRole("button", { name: "投稿する" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/投稿は保存できました。写真を保存できませんでした/),
+      ).toBeTruthy();
+    });
+    // 投稿は保存済みなので、状態を選び直して作り直す導線は出さない
+    expect(screen.queryByRole("radio", { name: "通れる" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "写真を送り直す" }));
+
+    await waitFor(() => {
+      expect(attachMutateAsync).toHaveBeenCalledTimes(2);
+    });
+    // 二重投稿の防止がこのテストの主眼
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+    expect(attachMutateAsync.mock.calls[1]?.[0]).toEqual({
+      fieldReportId: "created",
+      contentBase64: "AAAA",
+    });
+  });
+
+  it("写真を読み取れなくても投稿は作り直さない", async () => {
+    mutateAsync.mockResolvedValue({ id: "created" });
+    readImageFile.mockResolvedValue({
+      ok: false,
+      message: "写真を読み取れませんでした",
+    });
+    render(<PostsPage />);
+
+    openFormAndChoosePassable();
+    attachPhotoFile();
+    fireEvent.click(screen.getByRole("button", { name: "投稿する" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/投稿は保存できました。写真を読み取れませんでした/),
+      ).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "写真を送り直す" }));
+
+    await waitFor(() => {
+      expect(readImageFile).toHaveBeenCalledTimes(2);
+    });
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+    expect(attachMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("写真をあきらめても、保存済みの投稿は残ったまま地図へ戻れる", async () => {
+    mutateAsync.mockResolvedValue({ id: "created" });
+    attachMutateAsync.mockRejectedValue(
+      new Error("写真を保存できませんでした"),
+    );
+    render(<PostsPage />);
+
+    openFormAndChoosePassable();
+    attachPhotoFile();
+    fireEvent.click(screen.getByRole("button", { name: "投稿する" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "写真をつけずに完了する" }),
+      ).toBeTruthy();
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "写真をつけずに完了する" }),
+    );
+
+    expect(
+      screen.getByText("投稿しました（写真は添付できませんでした）"),
+    ).toBeTruthy();
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("写真を選ばなければ添付 API を呼ばない", async () => {
+    mutateAsync.mockResolvedValue({ id: "created" });
+    render(<PostsPage />);
+
+    openFormAndChoosePassable();
+    fireEvent.click(screen.getByRole("button", { name: "投稿する" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("投稿しました")).toBeTruthy();
+    });
+    expect(attachMutateAsync).not.toHaveBeenCalled();
   });
 });
